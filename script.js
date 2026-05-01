@@ -9,6 +9,9 @@ let activeBusID = "bus01";
 let startCoords = null;
 let endCoords = null;
 
+// Role management
+let currentRole = "";
+
 // State management flags
 let isUserInteracting = false;
 let isResetting = false;
@@ -70,65 +73,39 @@ function initializeFleetData() {
 
 // === AUTH FUNCTIONS ===
 function setTempRole(role) {
-    console.log("Role selected:", role);
-    localStorage.setItem("temp_role", role);
-    
-    if (role === "driver") {
-        window.location.href = "driver.html";
-    } else if (role === "admin") {
-        window.location.href = "admin.html";
-    } else {
-        console.log("Parent role selected - showing login form");
-        const roleSelection = document.getElementById('role-selection-v3');
-        const authForm = document.getElementById('auth-form-v3');
-        if (roleSelection) roleSelection.style.display = 'none';
-        if (authForm) authForm.style.display = 'block';
-    }
+    currentRole = role;
+    document.getElementById("role-selection-v3").style.display = "none";
+    document.getElementById("auth-form-v3").style.display = "block";
 }
 
 function processLogin() {
-    console.log("processLogin called");
-    
-    const role = localStorage.getItem("temp_role");
-    const username = document.getElementById('username').value.trim().toLowerCase();
-    const password = document.getElementById('password').value.trim();
-    
-    console.log("Login attempt:", { role, username });
-    
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
     if (!username || !password) {
-        alert("Please enter both username and password");
+        alert("Enter login details");
         return;
     }
-    
-    const user = USERS[username];
-    
-    if (user && user.password === password && user.role === role) {
-        console.log("Login successful:", user.role);
-        
-        if (role !== 'driver') {
-            localStorage.setItem("saved_user_role", role);
-        }
-        sessionStorage.setItem("active_role", role);
-        sessionStorage.setItem("active_user", username);
-        localStorage.setItem("active_user", username);
-        
-        if (user.busId) {
-            sessionStorage.setItem("active_bus", user.busId);
-            activeBusID = user.busId;
-        }
-        
-        sessionStorage.setItem("is_logged_in", "true");
-        
-        if (role === 'driver') {
-            window.location.href = "driver.html";
-        } else if (role === 'admin') {
-            window.location.href = "admin.html";
-        } else {
-            showToast("Login successful! Loading dashboard...");
-            setTimeout(() => launchDashboard(), 500);
-        }
-    } else {
-        alert("Access Denied: Invalid Credentials");
+
+    if (!currentRole) {
+        alert("Select role first");
+        return;
+    }
+
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app-container").style.display = "block";
+
+    // Hide all portals first
+    document.getElementById("driver-portal").style.display = "none";
+    document.getElementById("monitor-portal").style.display = "none";
+
+    // Show correct portal
+    if (currentRole === "driver") {
+        document.getElementById("driver-portal").style.display = "block";
+    } else if (currentRole === "admin") {
+        document.getElementById("monitor-portal").style.display = "block";
+    } else if (currentRole === "parent") {
+        document.getElementById("monitor-portal").style.display = "block";
     }
 }
 

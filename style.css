@@ -847,14 +847,9 @@ body {
     border-right: 1px solid rgba(255,255,255,0.1);
     padding: 16px;
     overflow-y: auto;
-<<<<<<< HEAD
-    box-shadow: 4px 0 20px rgba(0,0,0,0.05);
-    flex-shrink: 0;
-=======
     overflow-x: hidden;
     box-shadow: 4px 0 20px rgba(0,0,0,0.1);
     position: relative;
-    resize: horizontal;
 }
 
 /* Resize Handle */
@@ -889,7 +884,6 @@ body {
 .pro-sidebar::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.2);
     border-radius: 3px;
->>>>>>> b4cec91c3737667a7ba67973a7437e4e345308bb
 }
 
 .sidebar-tag { 
@@ -1915,7 +1909,6 @@ body {
     box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
 }
 
-<<<<<<< HEAD
 /* GPS Location Button */
 .btn-gps-location {
     width: 100%;
@@ -2286,7 +2279,8 @@ body {
     .btn-gps-location:active {
         transform: scale(0.98);
     }
-=======
+}
+
 /* ============================================
    ANIMATIONS & INTERACTIONS
    ============================================ */
@@ -2435,5 +2429,4 @@ body {
     height: 40px;
     font-size: 1.1rem;
   }
->>>>>>> b4cec91c3737667a7ba67973a7437e4e345308bb
 }
