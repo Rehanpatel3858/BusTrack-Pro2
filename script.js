@@ -102,8 +102,8 @@ function setTempRole(role) {
 }
 
 function processLogin() {
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
 
     if (!username || !password) {
         alert("Enter login details");
@@ -115,28 +115,53 @@ function processLogin() {
         return;
     }
 
+    currentUser = username.toLowerCase();
+
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app-container").style.display = "block";
 
-    // Hide all portals first
+    // Hide all portals
     document.getElementById("driver-portal").style.display = "none";
     document.getElementById("monitor-portal").style.display = "none";
 
-    // Show correct portal
+    // ROLE LOGIC
     if (currentRole === "driver") {
-        document.getElementById("driver-portal").style.display = "block";
-    } else if (currentRole === "admin") {
-        document.getElementById("monitor-portal").style.display = "block";
-        loadAdminBuses();
-    } else if (currentRole === "parent") {
-        document.getElementById("monitor-portal").style.display = "block";
-        const assignedBus = parentBusMap[username];
-        if (assignedBus) {
-            changeBus(assignedBus);
+        const assignedBus = currentUser; // driver login = bus01, bus02...
+
+        if (!assignedBus.startsWith("bus")) {
+            alert("Driver ID must be like bus01");
+            return;
         }
+
+        document.getElementById("driver-portal").style.display = "block";
+
+        setTimeout(() => {
+            filterBusForUser(assignedBus);
+        }, 100);
+    }
+    else if (currentRole === "parent") {
+        const assignedBus = parentBusMap[currentUser];
+
+        if (!assignedBus) {
+            alert("Invalid student ID");
+            return;
+        }
+
+        document.getElementById("monitor-portal").style.display = "block";
+
+        setTimeout(() => {
+            filterBusForUser(assignedBus);
+        }, 100);
+    }
+    else if (currentRole === "admin") {
+        document.getElementById("monitor-portal").style.display = "block";
+
+        setTimeout(() => {
+            filterBusForUser("all");
+        }, 100);
     }
 
-    // Initialize map after login success
+    // load map after UI
     setTimeout(() => {
         initMap();
     }, 500);
@@ -427,18 +452,23 @@ function loadAdminBuses() {
 }
 
 function filterBusForUser(busId) {
-    const allChips = document.querySelectorAll(".chip");
+    const items = document.querySelectorAll(".fleet-item");
 
-    allChips.forEach(chip => {
-        const bus = chip.innerText.toLowerCase().replace("-", "");
+    items.forEach(item => {
+        const chip = item.querySelector(".chip");
+        if (!chip) return;
+
+        // Example: "B-01" → "bus01"
+        const text = chip.innerText.trim().toLowerCase();
+        const normalized = "bus" + text.replace("b-", "");
 
         if (busId === "all") {
-            chip.parentElement.style.display = "flex";
+            item.style.display = "flex";
         } else {
-            if (bus === busId) {
-                chip.parentElement.style.display = "flex";
+            if (normalized === busId) {
+                item.style.display = "flex";
             } else {
-                chip.parentElement.style.display = "none";
+                item.style.display = "none";
             }
         }
     });
@@ -460,8 +490,10 @@ function searchAndMove(type) {
     tt.services.fuzzySearch({
         key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
         query: query
-    }).then(result => {
-        const pos = result.results[0].position;
+    }).then(res => {
+        if (!res.results.length) return;
+
+        const pos = res.results[0].position;
         const coords = [pos.lng, pos.lat];
 
         if (type === "current") {
@@ -473,7 +505,7 @@ function searchAndMove(type) {
         if (currentCoords && destinationCoords) {
             drawRoute();
         }
-    });
+    }).catch(err => console.error(err));
 }
 
 function drawRoute() {
