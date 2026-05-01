@@ -1,3 +1,5 @@
+console.log("SCRIPT LOADED SUCCESSFULLY");
+
 /**
  * BUSTRACK MB - Main Script
  * Clean version with no merge conflicts
@@ -306,6 +308,7 @@ function syncData() {
 
 // Map functions
 function initMap() {
+    console.log("MAP INIT RUNNING");
     if (typeof tt === "undefined") {
         console.error("TomTom not loaded");
         return;
@@ -392,6 +395,7 @@ function mapFitAll() {
 
 // ============================================
 function initMap() {
+    console.log("MAP INIT RUNNING");
     if (typeof tt === "undefined") {
         console.error("TomTom not loaded");
         return;
