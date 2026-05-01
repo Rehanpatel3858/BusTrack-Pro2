@@ -12,6 +12,13 @@ let endCoords = null;
 // Role management
 let currentRole = "";
 
+// Parent bus mapping
+const parentBusMap = {
+    "student01": "bus01",
+    "student02": "bus02",
+    "student03": "bus03"
+};
+
 // State management flags
 let isUserInteracting = false;
 let isResetting = false;
@@ -104,9 +111,19 @@ function processLogin() {
         document.getElementById("driver-portal").style.display = "block";
     } else if (currentRole === "admin") {
         document.getElementById("monitor-portal").style.display = "block";
+        loadAdminBuses();
     } else if (currentRole === "parent") {
         document.getElementById("monitor-portal").style.display = "block";
+        const assignedBus = parentBusMap[username];
+        if (assignedBus) {
+            changeBus(assignedBus);
+        }
     }
+
+    // Initialize map after login success
+    setTimeout(() => {
+        initMap();
+    }, 500);
 }
 
 function resetLogin() {
@@ -275,12 +292,18 @@ function syncData() {
 
 // Map functions
 function initMap() {
+    if (typeof tt === "undefined") {
+        console.error("TomTom not loaded");
+        return;
+    }
+
     if (map) map.remove();
+    
     map = tt.map({
         key: TOMTOM_KEY,
-        container: 'map',
-        center: [72.8557, 19.2813],
-        zoom: 14
+        container: "map",
+        center: [72.8777, 19.0760],
+        zoom: 12
     });
     
     map.on('load', () => {
@@ -290,10 +313,26 @@ function initMap() {
     });
     
     window.addEventListener('resize', () => {
-        if (map) map.invalidateSize();
+        if (map) {
+            map.invalidateSize();
+        }
     });
-    
-    setInterval(syncData, 5000);
+}
+
+function loadAdminBuses() {
+    const buses = ["bus01","bus02","bus03","bus04","bus05","bus06"];
+
+    const container = document.querySelector(".fleet-list");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    buses.forEach(bus => {
+        const div = document.createElement("div");
+        div.className = "fleet-item";
+        div.innerHTML = `<div class="chip">${bus.toUpperCase()}</div>`;
+        container.appendChild(div);
+    });
 }
 
 function searchAndMove(type) {
@@ -338,6 +377,50 @@ function mapFitAll() {
 }
 
 // ============================================
+function initMap() {
+    if (typeof tt === "undefined") {
+        console.error("TomTom not loaded");
+        return;
+    }
+
+    if (map) map.remove();
+    
+    map = tt.map({
+        key: TOMTOM_KEY,
+        container: "map",
+        center: [72.8777, 19.0760],
+        zoom: 12
+    });
+    
+    map.on('load', () => {
+        map.resize();
+        syncData();
+        setTimeout(() => map.invalidateSize(), 500);
+    });
+    
+    window.addEventListener('resize', () => {
+        if (map) {
+            map.invalidateSize();
+        }
+    });
+}
+
+function loadAdminBuses() {
+    const buses = ["bus01","bus02","bus03","bus04","bus05","bus06"];
+
+    const container = document.querySelector(".fleet-list");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    buses.forEach(bus => {
+        const div = document.createElement("div");
+        div.className = "fleet-item";
+        div.innerHTML = `<div class="chip">${bus.toUpperCase()}</div>`;
+        container.appendChild(div);
+    });
+}
+
 // EXPORT ALL FUNCTIONS TO GLOBAL SCOPE
 // REQUIRED for inline onclick handlers
 // ============================================
