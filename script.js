@@ -11,12 +11,26 @@ let endCoords = null;
 
 // Role management
 let currentRole = "";
+let currentUser = "";
 
-// Parent bus mapping
+// Mapping for Parent → Bus
 const parentBusMap = {
-    "student01": "bus01",
-    "student02": "bus02",
-    "student03": "bus03"
+    "student1": "bus01",
+    "student2": "bus02",
+    "student3": "bus03",
+    "student4": "bus04",
+    "student5": "bus05",
+    "student6": "bus06"
+};
+
+// Mapping for Driver → Bus
+const driverBusMap = {
+    "bus01": "bus01",
+    "bus02": "bus02",
+    "bus03": "bus03",
+    "bus04": "bus04",
+    "bus05": "bus05",
+    "bus06": "bus06"
 };
 
 // State management flags
@@ -383,26 +397,13 @@ function initMap() {
         return;
     }
 
-    if (map) map.remove();
-    
     map = tt.map({
         key: TOMTOM_KEY,
         container: "map",
         center: [72.8777, 19.0760],
         zoom: 12
     });
-    
-    map.on('load', () => {
-        map.resize();
-        syncData();
-        setTimeout(() => map.invalidateSize(), 500);
-    });
-    
-    window.addEventListener('resize', () => {
-        if (map) {
-            map.invalidateSize();
-        }
-    });
+
 }
 
 function loadAdminBuses() {
@@ -418,6 +419,83 @@ function loadAdminBuses() {
         div.className = "fleet-item";
         div.innerHTML = `<div class="chip">${bus.toUpperCase()}</div>`;
         container.appendChild(div);
+    });
+}
+
+function filterBusForUser(busId) {
+    const allChips = document.querySelectorAll(".chip");
+
+    allChips.forEach(chip => {
+        const bus = chip.innerText.toLowerCase().replace("-", "");
+
+        if (busId === "all") {
+            chip.parentElement.style.display = "flex";
+        } else {
+            if (bus === busId) {
+                chip.parentElement.style.display = "flex";
+            } else {
+                chip.parentElement.style.display = "none";
+            }
+        }
+    });
+
+    if (busId !== "all") {
+        changeBus(busId);
+    }
+}
+
+let currentCoords = null;
+let destinationCoords = null;
+
+function searchAndMove(type) {
+    const inputId = type === "current" ? "search-src" : "search-dest";
+    const query = document.getElementById(inputId).value;
+
+    if (!query) return;
+
+    tt.services.fuzzySearch({
+        key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
+        query: query
+    }).then(result => {
+        const pos = result.results[0].position;
+        const coords = [pos.lng, pos.lat];
+
+        if (type === "current") {
+            currentCoords = coords;
+        } else {
+            destinationCoords = coords;
+        }
+
+        if (currentCoords && destinationCoords) {
+            drawRoute();
+        }
+    });
+}
+
+function drawRoute() {
+    tt.services.calculateRoute({
+        key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
+        locations: currentCoords.join(",") + ":" + destinationCoords.join(",")
+    }).then(routeData => {
+        const geojson = routeData.toGeoJson();
+
+        if (map.getSource("route")) {
+            map.removeLayer("route");
+            map.removeSource("route");
+        }
+
+        map.addLayer({
+            id: "route",
+            type: "line",
+            source: {
+                type: "geojson",
+                data: geojson
+            },
+            paint: {
+                "line-color": "#3b82f6",
+                "line-width": 5
+            }
+        });
     });
 }
 
