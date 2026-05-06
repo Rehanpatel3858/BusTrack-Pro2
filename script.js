@@ -169,16 +169,16 @@ function initializeFleetData() {
 function selectRole(role) {
     currentRole = role;
     
-    const badge = document.getElementById("role-badge");
+    const roleBadge = document.getElementById("role-badge");
     
-    const roleNames = {
+    const roleTitles = {
         parent: "PARENT PORTAL",
         driver: "DRIVER TERMINAL",
         admin: "ADMIN CENTER"
     };
     
-    badge.innerHTML = roleNames[role];
-    badge.classList.remove("hidden");
+    roleBadge.innerHTML = roleTitles[role];
+    roleBadge.style.display = "block";
     
     document.getElementById("role-selection-v3").style.display = "none";
     document.getElementById("auth-form-v3").style.display = "block";
@@ -312,10 +312,10 @@ function logout() {
     location.reload();
 }
 
-function switchRole() {
-    const badge = document.getElementById("role-badge");
-    badge.innerHTML = "";
-    badge.classList.add("hidden");
+function changeRole() {
+    const roleBadge = document.getElementById("role-badge");
+    roleBadge.innerHTML = "";
+    roleBadge.style.display = "none";
     
     currentRole = null;
     document.getElementById('app-container').style.display = 'none';
@@ -700,6 +700,8 @@ let currentCoords = null;
 let destinationCoords = null;
 
 async function searchAndMove(type) {
+    console.log("SEARCH RUNNING:", type);
+    
     const inputId = type === "current" ? "search-src" : "search-dest";
     let query = document.getElementById(inputId).value.trim();
 
@@ -874,7 +876,7 @@ window.selectRole = selectRole;
 window.processLogin = processLogin;
 window.resetLogin = resetLogin;
 window.logout = logout;
-window.switchRole = switchRole;
+window.changeRole = changeRole;
 window.showToast = showToast;
 window.changeBus = changeBus;
 window.resetBus = resetBus;
@@ -903,21 +905,6 @@ function showCustomAlert(message) {
 
 function closeCustomAlert() {
     document.getElementById("custom-alert").classList.add("hidden");
-}
-
-function setPortalTitle(title = "") {
-    const badge = document.getElementById("role-badge");
-    
-    if (!badge) return;
-    
-    if (!title || title.trim() === "") {
-        badge.innerHTML = "";
-        badge.style.display = "none";
-        return;
-    }
-    
-    badge.style.display = "block";
-    badge.innerHTML = title;
 }
 
 function resetBus(busId) {
@@ -949,7 +936,6 @@ function resetBus(busId) {
 
 // Initialize on load
 window.onload = () => {
-    setPortalTitle("");
     initializeFleetData();
     
     const savedRole = localStorage.getItem("saved_user_role");
