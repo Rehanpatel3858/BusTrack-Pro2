@@ -168,6 +168,15 @@ function initializeFleetData() {
 // === AUTH FUNCTIONS ===
 function setTempRole(role) {
     currentRole = role;
+    
+    if (role === "driver") {
+        setPortalTitle("DRIVER PORTAL");
+    } else if (role === "parent") {
+        setPortalTitle("PARENT PORTAL");
+    } else if (role === "admin") {
+        setPortalTitle("ADMIN CENTER");
+    }
+    
     document.getElementById("role-selection-v3").style.display = "none";
     document.getElementById("auth-form-v3").style.display = "block";
 }
@@ -643,6 +652,12 @@ function filterBusForUser(busId) {
                         ${data.eta ? data.eta + " mins" : "--"}
                     </span>
                 </div>
+
+                ${currentRole !== "parent" ? `
+                <button class="reset-bus-btn" onclick="resetBus('${bus}')">
+                    Reset Bus
+                </button>
+                ` : ""}
             </div>
         `;
 
@@ -758,25 +773,32 @@ async function searchAndMove(type) {
 
 async function drawRoute() {
     if (!currentCoords || !destinationCoords) {
-        showCustomAlert("Select current and destination");
+        showCustomAlert("Select both locations");
         return;
     }
 
     try {
-        const routeData = await tt.services.calculateRoute({
-            key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
-            locations: currentCoords.join(",") + ":" + destinationCoords.join(",")
-        });
+        const response = await fetch(
+            `https://api.tomtom.com/routing/1/calculateRoute/${currentCoords[1]},${currentCoords[0]}:${destinationCoords[1]},${destinationCoords[0]}/json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi`
+        );
 
-        const geojson = routeData.toGeoJson();
-        const summary = routeData.routes[0].summary;
-        const etaMinutes = Math.ceil(summary.travelTimeInSeconds / 60);
+        const data = await response.json();
 
-        liveBusState[currentBus].eta = etaMinutes;
-        liveBusState[currentBus].active = true;
-        liveBusState[currentBus].routeGeo = geojson;
+        if (!data.routes || !data.routes.length) {
+            showCustomAlert("Route not found");
+            return;
+        }
 
-        filterBusForUser("all");
+        const route = data.routes[0];
+        const points = route.legs[0].points.map(p => [p.longitude, p.latitude]);
+
+        const geojson = {
+            type: "Feature",
+            geometry: {
+                type: "LineString",
+                coordinates: points
+            }
+        };
 
         if (map.getLayer("route")) {
             map.removeLayer("route");
@@ -786,25 +808,31 @@ async function drawRoute() {
             map.removeSource("route");
         }
 
+        map.addSource("route", {
+            type: "geojson",
+            data: geojson
+        });
+
         map.addLayer({
             id: "route",
             type: "line",
-            source: {
-                type: "geojson",
-                data: geojson
-            },
+            source: "route",
             paint: {
                 "line-color": "#2563eb",
-                "line-width": 7
+                "line-width": 8
             }
         });
 
         const bounds = new tt.LngLatBounds();
-        geojson.features[0].geometry.coordinates.forEach(coord => {
-            bounds.extend(coord);
+        points.forEach(point => {
+            bounds.extend(point);
         });
 
-        map.fitBounds(bounds, { padding: 70 });
+        map.fitBounds(bounds, { padding: 80 });
+
+        liveBusState[currentBus].active = true;
+        liveBusState[currentBus].routeGeo = geojson;
+        liveBusState[currentBus].eta = Math.ceil(route.summary.travelTimeInSeconds / 60);
 
         updateParentPanel(currentBus);
         filterBusForUser(currentRole === "admin" ? "all" : currentBus);
@@ -841,15 +869,48 @@ console.log('✅ setTempRole:', typeof window.setTempRole);
 console.log('✅ Login system ready!');
 
 // Custom Alert Functions
-function showCustomshowCustomAlert(message) {
+function showCustomAlert(message) {
     const alertBox = document.getElementById("custom-alert");
     const msg = document.getElementById("custom-alert-message");
     msg.innerText = message;
     alertBox.classList.remove("hidden");
 }
 
-function closeCustomshowCustomAlert() {
+function closeCustomAlert() {
     document.getElementById("custom-alert").classList.add("hidden");
+}
+
+function setPortalTitle(title) {
+    const badge = document.getElementById("role-badge");
+    badge.classList.remove("hidden");
+    badge.innerText = title;
+}
+
+function resetBus(busId) {
+    if (currentRole !== "admin" && currentBus !== busId) {
+        return;
+    }
+
+    liveBusState[busId] = {
+        active: false,
+        current: null,
+        destination: null,
+        eta: null,
+        routeGeo: null
+    };
+
+    if (map.getLayer("route")) {
+        map.removeLayer("route");
+    }
+
+    if (map.getSource("route")) {
+        map.removeSource("route");
+    }
+
+    filterBusForUser(currentRole === "admin" ? "all" : currentBus);
+    updateParentPanel(busId);
+
+    showCustomAlert(busId.toUpperCase() + " reset successfully");
 }
 
 // Initialize on load

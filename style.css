@@ -2562,13 +2562,32 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-top: 12px;
-    padding: 10px 18px;
+    margin-top: 16px;
+    padding: 10px 24px;
     border-radius: 999px;
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
-    color: white;
+    background: white;
+    color: #111827;
     font-size: 0.9rem;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 1px;
-    box-shadow: 0 10px 30px rgba(37,99,235,0.3);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+}
+
+/* Reset Bus Button */
+.reset-bus-btn {
+    width: 100%;
+    margin-top: 14px;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    font-weight: 700;
+    transition: 0.3s;
+}
+
+.reset-bus-btn:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
 }
