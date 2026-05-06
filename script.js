@@ -14,25 +14,36 @@ let endCoords = null;
 // Role management
 let currentRole = "";
 let currentUser = "";
+let currentBus = "bus01";
+
+// Live bus data storage
+const liveBusData = {
+    bus01: {},
+    bus02: {},
+    bus03: {},
+    bus04: {},
+    bus05: {},
+    bus06: {}
+};
 
 // Mapping for Parent → Bus
 const parentBusMap = {
-    "student1": "bus01",
-    "student2": "bus02",
-    "student3": "bus03",
-    "student4": "bus04",
-    "student5": "bus05",
-    "student6": "bus06"
+    "student01": "bus01",
+    "student02": "bus02",
+    "student03": "bus03",
+    "student04": "bus04",
+    "student05": "bus05",
+    "student06": "bus06"
 };
 
 // Mapping for Driver → Bus
 const driverBusMap = {
-    "bus01": "bus01",
-    "bus02": "bus02",
-    "bus03": "bus03",
-    "bus04": "bus04",
-    "bus05": "bus05",
-    "bus06": "bus06"
+    "driver01": "bus01",
+    "driver02": "bus02",
+    "driver03": "bus03",
+    "driver04": "bus04",
+    "driver05": "bus05",
+    "driver06": "bus06"
 };
 
 // State management flags
@@ -126,12 +137,14 @@ function processLogin() {
 
     // ROLE LOGIC
     if (currentRole === "driver") {
-        const assignedBus = currentUser; // driver login = bus01, bus02...
-
-        if (!assignedBus.startsWith("bus")) {
-            alert("Driver ID must be like bus01");
+        const assignedBus = driverBusMap[currentUser];
+        
+        if (!assignedBus) {
+            alert("Invalid driver ID");
             return;
         }
+        
+        currentBus = assignedBus;
 
         document.getElementById("driver-portal").style.display = "block";
 
@@ -146,6 +159,8 @@ function processLogin() {
             alert("Invalid student ID");
             return;
         }
+        
+        currentBus = assignedBus;
 
         document.getElementById("monitor-portal").style.display = "block";
 
@@ -253,28 +268,30 @@ function updateChipUI(id) {
 }
 
 // Change bus
-function changeBus(id) {
-    isUserInteracting = true;
-    lastUserActionTime = Date.now();
+function changeBus(busId) {
+    currentBus = busId;
+    const data = liveBusData[busId];
     
-    activeBusID = id;
-    sessionStorage.setItem("active_bus", id);
-    updateChipUI(id);
+    const busTitle = document.getElementById("m-bus-id");
+    const fromText = document.getElementById("m-from");
+    const toText = document.getElementById("m-to");
+    const etaText = document.getElementById("m-eta");
     
-    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-    if (busMarker) { busMarker.remove(); busMarker = null; }
-    if (destMarker) { destMarker.remove(); destMarker = null; }
+    if (busTitle) {
+        busTitle.innerText = "VEHICLE: " + busId.toUpperCase();
+    }
     
-    startCoords = null;
-    endCoords = null;
+    if (fromText) {
+        fromText.innerText = data && data.currentName ? data.currentName : "--";
+    }
     
-    syncData();
-    showToast(`Selected Bus ${formatBusID(id)}`);
+    if (toText) {
+        toText.innerText = data && data.destinationName ? data.destinationName : "--";
+    }
     
-    setTimeout(() => {
-        isUserInteracting = false;
-        lastUserActionTime = 0;
-    }, INTERACTION_COOLDOWN);
+    if (etaText) {
+        etaText.innerText = data && data.eta ? data.eta : "--";
+    }
 }
 
 // Reset bus
@@ -498,8 +515,18 @@ function searchAndMove(type) {
 
         if (type === "current") {
             currentCoords = coords;
+            liveBusData[currentBus] = {
+                ...liveBusData[currentBus],
+                currentName: query,
+                currentCoords: coords
+            };
         } else {
             destinationCoords = coords;
+            liveBusData[currentBus] = {
+                ...liveBusData[currentBus],
+                destinationName: query,
+                destinationCoords: coords
+            };
         }
 
         if (currentCoords && destinationCoords) {
@@ -513,6 +540,11 @@ function drawRoute() {
         key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
         locations: currentCoords.join(",") + ":" + destinationCoords.join(",")
     }).then(routeData => {
+        const summary = routeData.routes[0].summary;
+        const etaMinutes = Math.ceil(summary.travelTimeInSeconds / 60);
+        
+        liveBusData[currentBus].eta = etaMinutes;
+        
         const geojson = routeData.toGeoJson();
 
         if (map.getSource("route")) {
