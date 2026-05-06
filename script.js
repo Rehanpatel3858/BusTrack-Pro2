@@ -137,20 +137,15 @@ function processLogin() {
 
     // ROLE LOGIC
     if (currentRole === "driver") {
-        const assignedBus = driverBusMap[currentUser];
-        
-        if (!assignedBus) {
-            alert("Invalid driver ID");
-            return;
-        }
-        
-        currentBus = assignedBus;
+        const assignedBus = currentUser;
 
         document.getElementById("driver-portal").style.display = "block";
+        document.getElementById("monitor-portal").style.display = "none";
 
         setTimeout(() => {
             filterBusForUser(assignedBus);
-        }, 100);
+            changeBus(assignedBus);
+        }, 300);
     }
     else if (currentRole === "parent") {
         const assignedBus = parentBusMap[currentUser];
@@ -159,21 +154,25 @@ function processLogin() {
             alert("Invalid student ID");
             return;
         }
-        
+
         currentBus = assignedBus;
 
         document.getElementById("monitor-portal").style.display = "block";
+        document.getElementById("driver-portal").style.display = "none";
 
         setTimeout(() => {
             filterBusForUser(assignedBus);
+            changeBus(assignedBus);
         }, 100);
     }
     else if (currentRole === "admin") {
         document.getElementById("monitor-portal").style.display = "block";
+        document.getElementById("driver-portal").style.display = "none";
 
         setTimeout(() => {
             filterBusForUser("all");
-        }, 100);
+            changeBus("bus01");
+        }, 300);
     }
 
     // load map after UI
@@ -469,30 +468,67 @@ function loadAdminBuses() {
 }
 
 function filterBusForUser(busId) {
-    const items = document.querySelectorAll(".fleet-item");
+    const fleetContainer = document.querySelector(".fleet-list");
+    if (!fleetContainer) return;
 
-    items.forEach(item => {
-        const chip = item.querySelector(".chip");
-        if (!chip) return;
+    const buses = [
+        "bus01",
+        "bus02",
+        "bus03",
+        "bus04",
+        "bus05",
+        "bus06"
+    ];
 
-        // Example: "B-01" → "bus01"
-        const text = chip.innerText.trim().toLowerCase();
-        const normalized = "bus" + text.replace("b-", "");
+    fleetContainer.innerHTML = "";
 
-        if (busId === "all") {
-            item.style.display = "flex";
-        } else {
-            if (normalized === busId) {
-                item.style.display = "flex";
-            } else {
-                item.style.display = "none";
-            }
+    buses.forEach(bus => {
+        if (busId !== "all" && bus !== busId) {
+            return;
         }
-    });
 
-    if (busId !== "all") {
-        changeBus(busId);
-    }
+        const display = bus.replace("bus", "B-");
+
+        const card = document.createElement("div");
+        card.className = "admin-bus-card";
+
+        card.innerHTML = `
+            <div class="bus-card-header">
+                <div class="bus-id-badge">
+                    ${display}
+                </div>
+                <div class="status-badge live">
+                    LIVE
+                </div>
+            </div>
+
+            <div class="bus-card-details">
+                <div class="detail-row">
+                    <span class="detail-label">
+                        Route
+                    </span>
+                    <span class="detail-value">
+                        Active
+                    </span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">
+                        ETA
+                    </span>
+                    <span class="detail-value">
+                        25 mins
+                    </span>
+                </div>
+            </div>
+        `;
+
+        card.onclick = () => {
+            changeBus(bus);
+        };
+
+        fleetContainer.appendChild(card);
+    });
 }
 
 let currentCoords = null;

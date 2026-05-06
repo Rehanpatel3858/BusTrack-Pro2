@@ -2430,3 +2430,67 @@ body {
     font-size: 1.1rem;
   }
 }
+
+/* Admin Bus Cards */
+.admin-bus-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.admin-bus-card:hover {
+    transform: translateY(-3px);
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(59,130,246,0.5);
+}
+
+.bus-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.bus-id-badge {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+    padding: 10px 16px;
+    border-radius: 12px;
+}
+
+.status-badge.live {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.bus-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    color: white;
+    font-size: 0.85rem;
+}
+
+.detail-label {
+    color: #94a3b8;
+}
+
+.detail-value {
+    color: white;
+    font-weight: 700;
+}
