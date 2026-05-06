@@ -16,14 +16,50 @@ let currentRole = "";
 let currentUser = "";
 let currentBus = "bus01";
 
-// Live bus data storage
-const liveBusData = {
-    bus01: {},
-    bus02: {},
-    bus03: {},
-    bus04: {},
-    bus05: {},
-    bus06: {}
+// Live bus state storage
+const liveBusState = {
+    bus01: {
+        active: false,
+        current: null,
+        destination: null,
+        eta: null,
+        routeGeo: null
+    },
+    bus02: {
+        active: false,
+        current: null,
+        destination: null,
+        eta: null,
+        routeGeo: null
+    },
+    bus03: {
+        active: false,
+        current: null,
+        destination: null,
+        eta: null,
+        routeGeo: null
+    },
+    bus04: {
+        active: false,
+        current: null,
+        destination: null,
+        eta: null,
+        routeGeo: null
+    },
+    bus05: {
+        active: false,
+        current: null,
+        destination: null,
+        eta: null,
+        routeGeo: null
+    },
+    bus06: {
+        active: false,
+        current: null,
+        destination: null,
+        eta: null,
+        routeGeo: null
+    }
 };
 
 // Mapping for Parent → Bus
@@ -269,7 +305,7 @@ function updateChipUI(id) {
 // Change bus
 function changeBus(busId) {
     currentBus = busId;
-    const data = liveBusData[busId];
+    const data = liveBusState[busId];
     
     const busTitle = document.getElementById("m-bus-id");
     const fromText = document.getElementById("m-from");
@@ -281,15 +317,36 @@ function changeBus(busId) {
     }
     
     if (fromText) {
-        fromText.innerText = data && data.currentName ? data.currentName : "--";
+        fromText.innerText = data && data.current ? data.current.name : "--";
     }
     
     if (toText) {
-        toText.innerText = data && data.destinationName ? data.destinationName : "--";
+        toText.innerText = data && data.destination ? data.destination.name : "--";
     }
     
     if (etaText) {
-        etaText.innerText = data && data.eta ? data.eta : "--";
+        etaText.innerText = data && data.eta ? data.eta + " mins" : "--";
+    }
+}
+
+function updateParentPanel(busId) {
+    const data = liveBusState[busId];
+    if (!data) return;
+
+    const fromText = document.getElementById("m-from");
+    const toText = document.getElementById("m-to");
+    const etaText = document.getElementById("m-eta");
+
+    if (fromText && data.current) {
+        fromText.innerText = data.current.name;
+    }
+
+    if (toText && data.destination) {
+        toText.innerText = data.destination.name;
+    }
+
+    if (etaText) {
+        etaText.innerText = data.eta ? data.eta + " mins" : "--";
     }
 }
 
@@ -487,6 +544,9 @@ function filterBusForUser(busId) {
             return;
         }
 
+        const data = liveBusState[bus];
+        const status = data.active ? "LIVE" : "OFFLINE";
+        const statusClass = data.active ? "live" : "offline";
         const display = bus.replace("bus", "B-");
 
         const card = document.createElement("div");
@@ -497,8 +557,8 @@ function filterBusForUser(busId) {
                 <div class="bus-id-badge">
                     ${display}
                 </div>
-                <div class="status-badge live">
-                    LIVE
+                <div class="status-badge ${statusClass}">
+                    ${status}
                 </div>
             </div>
 
@@ -508,7 +568,7 @@ function filterBusForUser(busId) {
                         Route
                     </span>
                     <span class="detail-value">
-                        Active
+                        ${data.active ? "Active" : "--"}
                     </span>
                 </div>
 
@@ -517,14 +577,39 @@ function filterBusForUser(busId) {
                         ETA
                     </span>
                     <span class="detail-value">
-                        25 mins
+                        ${data.eta ? data.eta + " mins" : "--"}
                     </span>
                 </div>
             </div>
         `;
 
         card.onclick = () => {
-            changeBus(bus);
+            if (!data.routeGeo) return;
+
+            currentBus = bus;
+
+            if (map.getLayer("route")) {
+                map.removeLayer("route");
+            }
+
+            if (map.getSource("route")) {
+                map.removeSource("route");
+            }
+
+            map.addLayer({
+                id: "route",
+                type: "line",
+                source: {
+                    type: "geojson",
+                    data: data.routeGeo
+                },
+                paint: {
+                    "line-color": "#2563eb",
+                    "line-width": 7
+                }
+            });
+
+            updateParentPanel(bus);
         };
 
         fleetContainer.appendChild(card);
@@ -534,57 +619,82 @@ function filterBusForUser(busId) {
 let currentCoords = null;
 let destinationCoords = null;
 
-function searchAndMove(type) {
+async function searchAndMove(type) {
     const inputId = type === "current" ? "search-src" : "search-dest";
-    const query = document.getElementById(inputId).value;
+    const query = document.getElementById(inputId).value.trim();
 
     if (!query) return;
 
-    tt.services.fuzzySearch({
-        key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
-        query: query
-    }).then(res => {
-        if (!res.results.length) return;
+    try {
+        const result = await tt.services.fuzzySearch({
+            key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
+            query: query,
+            limit: 1
+        });
 
-        const pos = res.results[0].position;
-        const coords = [pos.lng, pos.lat];
+        if (!result.results.length) {
+            alert("Location not found");
+            return;
+        }
+
+        const place = result.results[0];
+        const coords = [place.position.lng, place.position.lat];
 
         if (type === "current") {
             currentCoords = coords;
-            liveBusData[currentBus] = {
-                ...liveBusData[currentBus],
-                currentName: query,
-                currentCoords: coords
+            liveBusState[currentBus].current = {
+                name: query,
+                coords: coords
             };
         } else {
             destinationCoords = coords;
-            liveBusData[currentBus] = {
-                ...liveBusData[currentBus],
-                destinationName: query,
-                destinationCoords: coords
+            liveBusState[currentBus].destination = {
+                name: query,
+                coords: coords
             };
         }
+
+        map.flyTo({
+            center: coords,
+            zoom: 13
+        });
+
+        new tt.Marker().setLngLat(coords).addTo(map);
 
         if (currentCoords && destinationCoords) {
             drawRoute();
         }
-    }).catch(err => console.error(err));
+    } catch(err) {
+        console.error(err);
+        alert("Search failed");
+    }
 }
 
-function drawRoute() {
-    tt.services.calculateRoute({
-        key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
-        locations: currentCoords.join(",") + ":" + destinationCoords.join(",")
-    }).then(routeData => {
+async function drawRoute() {
+    if (!currentCoords || !destinationCoords) {
+        alert("Select current and destination");
+        return;
+    }
+
+    try {
+        const routeData = await tt.services.calculateRoute({
+            key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
+            locations: currentCoords.join(",") + ":" + destinationCoords.join(",")
+        });
+
+        const geojson = routeData.toGeoJson();
         const summary = routeData.routes[0].summary;
         const etaMinutes = Math.ceil(summary.travelTimeInSeconds / 60);
-        
-        liveBusData[currentBus].eta = etaMinutes;
-        
-        const geojson = routeData.toGeoJson();
+
+        liveBusState[currentBus].eta = etaMinutes;
+        liveBusState[currentBus].active = true;
+        liveBusState[currentBus].routeGeo = geojson;
+
+        if (map.getLayer("route")) {
+            map.removeLayer("route");
+        }
 
         if (map.getSource("route")) {
-            map.removeLayer("route");
             map.removeSource("route");
         }
 
@@ -596,11 +706,24 @@ function drawRoute() {
                 data: geojson
             },
             paint: {
-                "line-color": "#3b82f6",
-                "line-width": 5
+                "line-color": "#2563eb",
+                "line-width": 7
             }
         });
-    });
+
+        const bounds = new tt.LngLatBounds();
+        geojson.features[0].geometry.coordinates.forEach(coord => {
+            bounds.extend(coord);
+        });
+
+        map.fitBounds(bounds, { padding: 70 });
+
+        updateParentPanel(currentBus);
+        filterBusForUser(currentRole === "admin" ? "all" : currentBus);
+    } catch(err) {
+        console.error(err);
+        alert("Route generation failed");
+    }
 }
 
 // EXPORT ALL FUNCTIONS TO GLOBAL SCOPE
