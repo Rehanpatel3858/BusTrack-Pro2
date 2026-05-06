@@ -166,16 +166,16 @@ function initializeFleetData() {
 }
 
 // === AUTH FUNCTIONS ===
-function setTempRole(role) {
+function selectRole(role) {
     currentRole = role;
     
-    if (role === "driver") {
-        setPortalTitle("DRIVER PORTAL");
-    } else if (role === "parent") {
-        setPortalTitle("PARENT PORTAL");
-    } else if (role === "admin") {
-        setPortalTitle("ADMIN CENTER");
-    }
+    const roleNames = {
+        parent: "PARENT PORTAL",
+        driver: "DRIVER TERMINAL",
+        admin: "ADMIN CENTER"
+    };
+    
+    setPortalTitle(roleNames[role]);
     
     document.getElementById("role-selection-v3").style.display = "none";
     document.getElementById("auth-form-v3").style.display = "block";
@@ -215,8 +215,6 @@ function processLogin() {
         document.getElementById("driver-portal").style.display = "block";
         document.getElementById("monitor-portal").style.display = "none";
 
-        document.getElementById("role-badge").innerText = "DRIVER PORTAL";
-
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app-container").style.display = "block";
 
@@ -242,8 +240,6 @@ function processLogin() {
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
 
-        document.getElementById("role-badge").innerText = "PARENT PORTAL";
-
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app-container").style.display = "block";
 
@@ -266,8 +262,6 @@ function processLogin() {
 
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
-
-        document.getElementById("role-badge").innerText = "ADMIN PORTAL";
 
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app-container").style.display = "block";
@@ -317,6 +311,7 @@ function logout() {
 
 function switchRole() {
     setPortalTitle("");
+    currentRole = null;
     document.getElementById('app-container').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     sessionStorage.clear();
@@ -707,10 +702,14 @@ async function searchAndMove(type) {
         return;
     }
 
-    query = query.replace(/railway/gi, "").replace(/station/gi, "").replace(/\s+/g, " ").trim();
+    query = query.replace(/\s+/g, " ").trim();
+    
+    if (!query.toLowerCase().includes("mumbai")) {
+        query += ", Mumbai, Maharashtra";
+    }
 
     try {
-        const url = `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&limit=5&countrySet=IN`;
+        const url = `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&limit=10&idxSet=POI,Geo&countrySet=IN&language=en-IN`;
         const response = await fetch(url);
         const data = await response.json();
 
@@ -719,7 +718,28 @@ async function searchAndMove(type) {
             return;
         }
 
-        const best = data.results[0];
+        let best = null;
+
+        for (const result of data.results) {
+            const name = (result.poi?.name || result.address?.freeformAddress || "").toLowerCase();
+
+            if (query.toLowerCase().includes("station")) {
+                if (name.includes("station")) {
+                    best = result;
+                    break;
+                }
+            }
+
+            if (!best) {
+                best = result;
+            }
+        }
+
+        if (!best) {
+            showCustomAlert("Location not found");
+            return;
+        }
+
         const coords = [best.position.lon, best.position.lat];
 
         if (type === "current") {
@@ -844,7 +864,7 @@ async function drawRoute() {
 // EXPORT ALL FUNCTIONS TO GLOBAL SCOPE
 // REQUIRED for inline onclick handlers
 // ============================================
-window.setTempRole = setTempRole;
+window.selectRole = selectRole;
 window.processLogin = processLogin;
 window.resetLogin = resetLogin;
 window.logout = logout;
@@ -864,7 +884,7 @@ window.mapFitAll = mapFitAll;
 
 console.log('✅ All functions exported to global scope');
 console.log('✅ processLogin:', typeof window.processLogin);
-console.log('✅ setTempRole:', typeof window.setTempRole);
+console.log('✅ selectRole:', typeof window.selectRole);
 console.log('✅ Login system ready!');
 
 // Custom Alert Functions
@@ -879,16 +899,18 @@ function closeCustomAlert() {
     document.getElementById("custom-alert").classList.add("hidden");
 }
 
-function setPortalTitle(title) {
+function setPortalTitle(title = "") {
     const badge = document.getElementById("role-badge");
     
-    if (!title) {
+    if (!badge) return;
+    
+    if (!title || title.trim() === "") {
         badge.innerHTML = "";
-        badge.classList.add("hidden");
+        badge.style.display = "none";
         return;
     }
     
-    badge.classList.remove("hidden");
+    badge.style.display = "block";
     badge.innerHTML = title;
 }
 
@@ -921,6 +943,7 @@ function resetBus(busId) {
 
 // Initialize on load
 window.onload = () => {
+    setPortalTitle("");
     initializeFleetData();
     
     const savedRole = localStorage.getItem("saved_user_role");
