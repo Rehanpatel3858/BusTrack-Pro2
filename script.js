@@ -11,6 +11,30 @@ let activeBusID = "bus01";
 let startCoords = null;
 let endCoords = null;
 
+// Authentication users
+const authUsers = {
+    admin: {
+        username: "admin",
+        password: "admin123"
+    },
+    drivers: {
+        driver01: "driver123",
+        driver02: "driver123",
+        driver03: "driver123",
+        driver04: "driver123",
+        driver05: "driver123",
+        driver06: "driver123"
+    },
+    parents: {
+        student01: "student123",
+        student02: "student123",
+        student03: "student123",
+        student04: "student123",
+        student05: "student123",
+        student06: "student123"
+    }
+};
+
 // Role management
 let currentRole = "";
 let currentUser = "";
@@ -149,7 +173,7 @@ function setTempRole(role) {
 }
 
 function processLogin() {
-    const username = document.getElementById("username").value.trim();
+    const username = document.getElementById("username").value.trim().toLowerCase();
     const password = document.getElementById("password").value.trim();
 
     if (!username || !password) {
@@ -162,21 +186,28 @@ function processLogin() {
         return;
     }
 
-    currentUser = username.toLowerCase();
-
-    document.getElementById("login-screen").style.display = "none";
-    document.getElementById("app-container").style.display = "block";
-
-    // Hide all portals
-    document.getElementById("driver-portal").style.display = "none";
-    document.getElementById("monitor-portal").style.display = "none";
+    currentUser = username;
 
     // ROLE LOGIC
     if (currentRole === "driver") {
-        const assignedBus = currentUser;
+        if (!authUsers.drivers[username]) {
+            alert("Invalid driver ID");
+            return;
+        }
+
+        if (authUsers.drivers[username] !== password) {
+            alert("Wrong password");
+            return;
+        }
+
+        const assignedBus = driverBusMap[username];
+        currentBus = assignedBus;
 
         document.getElementById("driver-portal").style.display = "block";
         document.getElementById("monitor-portal").style.display = "none";
+
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("app-container").style.display = "block";
 
         setTimeout(() => {
             filterBusForUser(assignedBus);
@@ -184,26 +215,47 @@ function processLogin() {
         }, 300);
     }
     else if (currentRole === "parent") {
-        const assignedBus = parentBusMap[currentUser];
-
-        if (!assignedBus) {
+        if (!authUsers.parents[username]) {
             alert("Invalid student ID");
             return;
         }
 
+        if (authUsers.parents[username] !== password) {
+            alert("Wrong password");
+            return;
+        }
+
+        const assignedBus = parentBusMap[username];
         currentBus = assignedBus;
 
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
 
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("app-container").style.display = "block";
+
         setTimeout(() => {
             filterBusForUser(assignedBus);
             changeBus(assignedBus);
-        }, 100);
+            updateParentPanel(assignedBus);
+        }, 300);
     }
     else if (currentRole === "admin") {
+        if (username !== authUsers.admin.username) {
+            alert("Invalid admin ID");
+            return;
+        }
+
+        if (password !== authUsers.admin.password) {
+            alert("Wrong password");
+            return;
+        }
+
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
+
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("app-container").style.display = "block";
 
         setTimeout(() => {
             filterBusForUser("all");
@@ -623,22 +675,25 @@ async function searchAndMove(type) {
     const inputId = type === "current" ? "search-src" : "search-dest";
     const query = document.getElementById(inputId).value.trim();
 
-    if (!query) return;
+    if (!query) {
+        alert("Enter location");
+        return;
+    }
 
     try {
-        const result = await tt.services.fuzzySearch({
-            key: "RlUjrRnVgicCym6rNTEWTDxJa7URNexi",
-            query: query,
-            limit: 1
-        });
+        const response = await fetch(
+            `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi`
+        );
 
-        if (!result.results.length) {
+        const data = await response.json();
+
+        if (!data.results || !data.results.length) {
             alert("Location not found");
             return;
         }
 
-        const place = result.results[0];
-        const coords = [place.position.lng, place.position.lat];
+        const result = data.results[0];
+        const coords = [result.position.lon, result.position.lat];
 
         if (type === "current") {
             currentCoords = coords;
@@ -654,12 +709,12 @@ async function searchAndMove(type) {
             };
         }
 
+        new tt.Marker().setLngLat(coords).addTo(map);
+
         map.flyTo({
             center: coords,
             zoom: 13
         });
-
-        new tt.Marker().setLngLat(coords).addTo(map);
 
         if (currentCoords && destinationCoords) {
             drawRoute();
