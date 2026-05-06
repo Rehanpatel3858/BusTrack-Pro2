@@ -169,13 +169,16 @@ function initializeFleetData() {
 function selectRole(role) {
     currentRole = role;
     
+    const badge = document.getElementById("role-badge");
+    
     const roleNames = {
         parent: "PARENT PORTAL",
         driver: "DRIVER TERMINAL",
         admin: "ADMIN CENTER"
     };
     
-    setPortalTitle(roleNames[role]);
+    badge.innerHTML = roleNames[role];
+    badge.classList.remove("hidden");
     
     document.getElementById("role-selection-v3").style.display = "none";
     document.getElementById("auth-form-v3").style.display = "block";
@@ -310,7 +313,10 @@ function logout() {
 }
 
 function switchRole() {
-    setPortalTitle("");
+    const badge = document.getElementById("role-badge");
+    badge.innerHTML = "";
+    badge.classList.add("hidden");
+    
     currentRole = null;
     document.getElementById('app-container').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
@@ -951,5 +957,24 @@ window.onload = () => {
     
     if (isLoggedInSession === "true" || savedRole) {
         launchDashboard();
+    }
+    
+    // Add Enter key support for search inputs
+    const searchSrc = document.getElementById("search-src");
+    if (searchSrc) {
+        searchSrc.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") {
+                searchAndMove("current");
+            }
+        });
+    }
+    
+    const searchDest = document.getElementById("search-dest");
+    if (searchDest) {
+        searchDest.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") {
+                searchAndMove("destination");
+            }
+        });
     }
 };
