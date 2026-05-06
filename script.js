@@ -316,6 +316,7 @@ function logout() {
 }
 
 function switchRole() {
+    setPortalTitle("");
     document.getElementById('app-container').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     sessionStorage.clear();
@@ -699,7 +700,7 @@ let destinationCoords = null;
 
 async function searchAndMove(type) {
     const inputId = type === "current" ? "search-src" : "search-dest";
-    const query = document.getElementById(inputId).value.trim();
+    const query = document.getElementById(inputId).value.trim().replace(/railway/gi, "").replace(/station/gi, "").replace(/\s+/g, " ");
 
     if (!query) {
         showCustomAlert("Enter location");
@@ -708,7 +709,7 @@ async function searchAndMove(type) {
 
     try {
         const response = await fetch(
-            `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(query)}.json?limit=1&countrySet=IN&key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&language=en-IN`
+            `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&limit=1&countrySet=IN&language=en-IN`
         );
 
         const data = await response.json();
@@ -724,50 +725,48 @@ async function searchAndMove(type) {
         if (type === "current") {
             currentCoords = coords;
             liveBusState[currentBus].current = {
-                name: query,
+                name: result.address.freeformAddress,
                 coords: coords
             };
-        } else {
-            destinationCoords = coords;
-            liveBusState[currentBus].destination = {
-                name: query,
-                coords: coords
-            };
-        }
 
-        map.flyTo({
-            center: coords,
-            zoom: 15
-        });
-
-        if (type === "current") {
             if (window.currentMarker) {
                 currentMarker.remove();
             }
 
-            currentMarker = new tt.Marker({
+            window.currentMarker = new tt.Marker({
                 color: "#2563eb"
             })
             .setLngLat(coords)
             .addTo(map);
         } else {
+            destinationCoords = coords;
+            liveBusState[currentBus].destination = {
+                name: result.address.freeformAddress,
+                coords: coords
+            };
+
             if (window.destinationMarker) {
                 destinationMarker.remove();
             }
 
-            destinationMarker = new tt.Marker({
+            window.destinationMarker = new tt.Marker({
                 color: "#ef4444"
             })
             .setLngLat(coords)
             .addTo(map);
         }
 
+        map.flyTo({
+            center: coords,
+            zoom: 14
+        });
+
         if (currentCoords && destinationCoords) {
             drawRoute();
         }
     } catch(err) {
         console.error(err);
-        showCustomAlert("Location search failed");
+        showCustomAlert("Search failed");
     }
 }
 
@@ -882,6 +881,13 @@ function closeCustomAlert() {
 
 function setPortalTitle(title) {
     const badge = document.getElementById("role-badge");
+    
+    if (!title) {
+        badge.innerText = "";
+        badge.classList.add("hidden");
+        return;
+    }
+    
     badge.classList.remove("hidden");
     badge.innerText = title;
 }
