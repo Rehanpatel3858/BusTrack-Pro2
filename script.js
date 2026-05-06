@@ -700,40 +700,40 @@ let destinationCoords = null;
 
 async function searchAndMove(type) {
     const inputId = type === "current" ? "search-src" : "search-dest";
-    const query = document.getElementById(inputId).value.trim().replace(/railway/gi, "").replace(/station/gi, "").replace(/\s+/g, " ");
+    let query = document.getElementById(inputId).value.trim();
 
     if (!query) {
         showCustomAlert("Enter location");
         return;
     }
 
-    try {
-        const response = await fetch(
-            `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&limit=1&countrySet=IN&language=en-IN`
-        );
+    query = query.replace(/railway/gi, "").replace(/station/gi, "").replace(/\s+/g, " ").trim();
 
+    try {
+        const url = `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&limit=5&countrySet=IN`;
+        const response = await fetch(url);
         const data = await response.json();
 
-        if (!data.results || !data.results.length) {
+        if (!data.results || data.results.length === 0) {
             showCustomAlert("Location not found");
             return;
         }
 
-        const result = data.results[0];
-        const coords = [result.position.lon, result.position.lat];
+        const best = data.results[0];
+        const coords = [best.position.lon, best.position.lat];
 
         if (type === "current") {
             currentCoords = coords;
             liveBusState[currentBus].current = {
-                name: result.address.freeformAddress,
-                coords: coords
+                name: best.address.freeformAddress,
+                coords
             };
 
             if (window.currentMarker) {
                 currentMarker.remove();
             }
 
-            window.currentMarker = new tt.Marker({
+            currentMarker = new tt.Marker({
                 color: "#2563eb"
             })
             .setLngLat(coords)
@@ -741,15 +741,15 @@ async function searchAndMove(type) {
         } else {
             destinationCoords = coords;
             liveBusState[currentBus].destination = {
-                name: result.address.freeformAddress,
-                coords: coords
+                name: best.address.freeformAddress,
+                coords
             };
 
             if (window.destinationMarker) {
                 destinationMarker.remove();
             }
 
-            window.destinationMarker = new tt.Marker({
+            destinationMarker = new tt.Marker({
                 color: "#ef4444"
             })
             .setLngLat(coords)
@@ -764,8 +764,8 @@ async function searchAndMove(type) {
         if (currentCoords && destinationCoords) {
             drawRoute();
         }
-    } catch(err) {
-        console.error(err);
+    } catch(error) {
+        console.error(error);
         showCustomAlert("Search failed");
     }
 }
@@ -883,13 +883,13 @@ function setPortalTitle(title) {
     const badge = document.getElementById("role-badge");
     
     if (!title) {
-        badge.innerText = "";
+        badge.innerHTML = "";
         badge.classList.add("hidden");
         return;
     }
     
     badge.classList.remove("hidden");
-    badge.innerText = title;
+    badge.innerHTML = title;
 }
 
 function resetBus(busId) {
