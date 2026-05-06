@@ -177,12 +177,12 @@ function processLogin() {
     const password = document.getElementById("password").value.trim();
 
     if (!username || !password) {
-        alert("Enter login details");
+        showCustomAlert("Enter login details");
         return;
     }
 
     if (!currentRole) {
-        alert("Select role first");
+        showCustomAlert("Select role first");
         return;
     }
 
@@ -191,12 +191,12 @@ function processLogin() {
     // ROLE LOGIC
     if (currentRole === "driver") {
         if (!authUsers.drivers[username]) {
-            alert("Invalid driver ID");
+            showCustomAlert("Invalid driver ID");
             return;
         }
 
         if (authUsers.drivers[username] !== password) {
-            alert("Wrong password");
+            showCustomAlert("Wrong password");
             return;
         }
 
@@ -205,6 +205,8 @@ function processLogin() {
 
         document.getElementById("driver-portal").style.display = "block";
         document.getElementById("monitor-portal").style.display = "none";
+
+        document.getElementById("role-badge").innerText = "DRIVER PORTAL";
 
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app-container").style.display = "block";
@@ -216,12 +218,12 @@ function processLogin() {
     }
     else if (currentRole === "parent") {
         if (!authUsers.parents[username]) {
-            alert("Invalid student ID");
+            showCustomAlert("Invalid student ID");
             return;
         }
 
         if (authUsers.parents[username] !== password) {
-            alert("Wrong password");
+            showCustomAlert("Wrong password");
             return;
         }
 
@@ -230,6 +232,8 @@ function processLogin() {
 
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
+
+        document.getElementById("role-badge").innerText = "PARENT PORTAL";
 
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app-container").style.display = "block";
@@ -242,17 +246,19 @@ function processLogin() {
     }
     else if (currentRole === "admin") {
         if (username !== authUsers.admin.username) {
-            alert("Invalid admin ID");
+            showCustomAlert("Invalid admin ID");
             return;
         }
 
         if (password !== authUsers.admin.password) {
-            alert("Wrong password");
+            showCustomAlert("Wrong password");
             return;
         }
 
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
+
+        document.getElementById("role-badge").innerText = "ADMIN PORTAL";
 
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app-container").style.display = "block";
@@ -315,7 +321,7 @@ function showToast(message) {
             toast.style.display = 'none';
         }, 3000);
     } else {
-        alert(message);
+        showCustomAlert(message);
     }
 }
 
@@ -388,6 +394,11 @@ function updateParentPanel(busId) {
     const fromText = document.getElementById("m-from");
     const toText = document.getElementById("m-to");
     const etaText = document.getElementById("m-eta");
+    const busLabel = document.getElementById("m-bus-id");
+
+    if (busLabel) {
+        busLabel.innerText = busId.toUpperCase();
+    }
 
     if (fromText && data.current) {
         fromText.innerText = data.current.name;
@@ -676,19 +687,19 @@ async function searchAndMove(type) {
     const query = document.getElementById(inputId).value.trim();
 
     if (!query) {
-        alert("Enter location");
+        showCustomAlert("Enter location");
         return;
     }
 
     try {
         const response = await fetch(
-            `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi`
+            `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(query)}.json?limit=1&countrySet=IN&key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&language=en-IN`
         );
 
         const data = await response.json();
 
         if (!data.results || !data.results.length) {
-            alert("Location not found");
+            showCustomAlert("Location not found");
             return;
         }
 
@@ -709,25 +720,45 @@ async function searchAndMove(type) {
             };
         }
 
-        new tt.Marker().setLngLat(coords).addTo(map);
-
         map.flyTo({
             center: coords,
-            zoom: 13
+            zoom: 15
         });
+
+        if (type === "current") {
+            if (window.currentMarker) {
+                currentMarker.remove();
+            }
+
+            currentMarker = new tt.Marker({
+                color: "#2563eb"
+            })
+            .setLngLat(coords)
+            .addTo(map);
+        } else {
+            if (window.destinationMarker) {
+                destinationMarker.remove();
+            }
+
+            destinationMarker = new tt.Marker({
+                color: "#ef4444"
+            })
+            .setLngLat(coords)
+            .addTo(map);
+        }
 
         if (currentCoords && destinationCoords) {
             drawRoute();
         }
     } catch(err) {
         console.error(err);
-        alert("Search failed");
+        showCustomAlert("Location search failed");
     }
 }
 
 async function drawRoute() {
     if (!currentCoords || !destinationCoords) {
-        alert("Select current and destination");
+        showCustomAlert("Select current and destination");
         return;
     }
 
@@ -744,6 +775,8 @@ async function drawRoute() {
         liveBusState[currentBus].eta = etaMinutes;
         liveBusState[currentBus].active = true;
         liveBusState[currentBus].routeGeo = geojson;
+
+        filterBusForUser("all");
 
         if (map.getLayer("route")) {
             map.removeLayer("route");
@@ -777,7 +810,7 @@ async function drawRoute() {
         filterBusForUser(currentRole === "admin" ? "all" : currentBus);
     } catch(err) {
         console.error(err);
-        alert("Route generation failed");
+        showCustomAlert("Route generation failed");
     }
 }
 
@@ -806,6 +839,18 @@ console.log('✅ All functions exported to global scope');
 console.log('✅ processLogin:', typeof window.processLogin);
 console.log('✅ setTempRole:', typeof window.setTempRole);
 console.log('✅ Login system ready!');
+
+// Custom Alert Functions
+function showCustomshowCustomAlert(message) {
+    const alertBox = document.getElementById("custom-alert");
+    const msg = document.getElementById("custom-alert-message");
+    msg.innerText = message;
+    alertBox.classList.remove("hidden");
+}
+
+function closeCustomshowCustomAlert() {
+    document.getElementById("custom-alert").classList.add("hidden");
+}
 
 // Initialize on load
 window.onload = () => {
