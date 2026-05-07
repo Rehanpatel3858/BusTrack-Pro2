@@ -498,12 +498,11 @@ function initMap() {
     map.on('load', () => {
         map.resize();
         syncData();
-        setTimeout(() => map.invalidateSize(), 500);
     });
     
     window.addEventListener('resize', () => {
         if (map) {
-            map.invalidateSize();
+            map.resize();
         }
     });
 }
@@ -793,7 +792,7 @@ async function searchAndMove(type) {
         // Build TomTom Fuzzy Search API URL
         const baseUrl = 'https://api.tomtom.com/search/2/search';
         const encodedQuery = encodeURIComponent(normalizedQuery);
-        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en-IN`;
+        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en`;
         
         console.log('Request URL:', url);
         console.log('Sending fetch request...');
