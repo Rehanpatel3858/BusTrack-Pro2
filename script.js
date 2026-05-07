@@ -565,23 +565,6 @@ function mapFitAll() {
     }
 }
 
-// ============================================
-function initMap() {
-    console.log("MAP INIT RUNNING");
-    if (typeof tt === "undefined") {
-        console.error("TomTom not loaded");
-        return;
-    }
-
-    map = tt.map({
-        key: TOMTOM_KEY,
-        container: "map",
-        center: [72.8777, 19.0760],
-        zoom: 12
-    });
-
-}
-
 function loadAdminBuses() {
     const buses = ["bus01","bus02","bus03","bus04","bus05","bus06"];
 
@@ -698,135 +681,190 @@ function filterBusForUser(busId) {
 
 let currentCoords = null;
 let destinationCoords = null;
+let currentMarker = null;
+let destinationMarker = null;
+
+// ===============================
+// SEARCH LOCATION (TomTom Fuzzy Search)
+// ===============================
 
 async function searchAndMove(type) {
     console.log("SEARCH RUNNING:", type);
     
     const inputId = type === "current" ? "search-src" : "search-dest";
-    let query = document.getElementById(inputId).value.trim();
+    const inputEl = document.getElementById(inputId);
+    
+    if (!inputEl) {
+        console.error("Input element not found:", inputId);
+        return;
+    }
+    
+    let query = inputEl.value.trim();
 
     if (!query) {
         showCustomAlert("Enter location");
         return;
     }
 
-    query = query.replace(/\s+/g, " ").trim();
-    
-    if (!query.toLowerCase().includes("mumbai")) {
-        query += ", Mumbai, Maharashtra";
+    // Add India context for better accuracy
+    if (!query.toLowerCase().includes("india") && 
+        !query.toLowerCase().includes("mumbai") &&
+        !query.toLowerCase().includes("maharashtra")) {
+        query += ", Mumbai, Maharashtra, India";
     }
 
     try {
-        const url = `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi&limit=10&idxSet=POI,Geo&countrySet=IN&language=en-IN`;
+        // Use TomTom Fuzzy Search API
+        const url = `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en-IN`;
+        
         const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+        
         const data = await response.json();
 
         if (!data.results || data.results.length === 0) {
-            showCustomAlert("Location not found");
+            showCustomAlert("Location not found. Try a different search term.");
             return;
         }
 
-        let best = null;
-
-        for (const result of data.results) {
-            const name = (result.poi?.name || result.address?.freeformAddress || "").toLowerCase();
-
-            if (query.toLowerCase().includes("station")) {
-                if (name.includes("station")) {
-                    best = result;
+        // Smart result selection - prioritize exact matches
+        let bestResult = data.results[0];
+        
+        // If searching for station, prioritize results with "station" in name
+        if (query.toLowerCase().includes("station")) {
+            for (const result of data.results) {
+                const poiName = (result.poi?.name || "").toLowerCase();
+                const address = (result.address?.freeformAddress || "").toLowerCase();
+                
+                if (poiName.includes("station") || address.includes("station")) {
+                    bestResult = result;
                     break;
                 }
             }
-
-            if (!best) {
-                best = result;
-            }
         }
 
-        if (!best) {
-            showCustomAlert("Location not found");
-            return;
-        }
+        const coords = [bestResult.position.lon, bestResult.position.lat];
+        const displayName = bestResult.address?.freeformAddress || query;
 
-        const coords = [best.position.lon, best.position.lat];
-
+        // Update coordinates
         if (type === "current") {
             currentCoords = coords;
-            liveBusState[currentBus].current = {
-                name: best.address.freeformAddress,
-                coords
-            };
+            
+            // Update live bus state
+            if (liveBusState[currentBus]) {
+                liveBusState[currentBus].current = {
+                    name: displayName,
+                    coords: coords
+                };
+            }
 
-            if (window.currentMarker) {
+            // Remove old marker
+            if (currentMarker) {
                 currentMarker.remove();
             }
 
+            // Add new marker
             currentMarker = new tt.Marker({
-                color: "#2563eb"
+                color: "#2563eb",
+                draggable: false
             })
             .setLngLat(coords)
-            .addTo(map);
+            .addTo(map)
+            .setPopup(new tt.Popup({ offset: 35 })
+                .setHTML(`<strong>Current Location</strong><br>${displayName}`));
+
         } else {
             destinationCoords = coords;
-            liveBusState[currentBus].destination = {
-                name: best.address.freeformAddress,
-                coords
-            };
+            
+            // Update live bus state
+            if (liveBusState[currentBus]) {
+                liveBusState[currentBus].destination = {
+                    name: displayName,
+                    coords: coords
+                };
+            }
 
-            if (window.destinationMarker) {
+            // Remove old marker
+            if (destinationMarker) {
                 destinationMarker.remove();
             }
 
+            // Add new marker
             destinationMarker = new tt.Marker({
-                color: "#ef4444"
+                color: "#ef4444",
+                draggable: false
             })
             .setLngLat(coords)
-            .addTo(map);
+            .addTo(map)
+            .setPopup(new tt.Popup({ offset: 35 })
+                .setHTML(`<strong>Destination</strong><br>${displayName}`));
         }
 
+        // Smooth map movement to new location
         map.flyTo({
             center: coords,
-            zoom: 14
+            zoom: 15,
+            duration: 1500,
+            essential: true
         });
 
+        // Draw route if both locations are set
         if (currentCoords && destinationCoords) {
-            drawRoute();
+            setTimeout(() => drawRoute(), 500);
         }
+
     } catch(error) {
-        console.error(error);
-        showCustomAlert("Search failed");
+        console.error("Search error:", error);
+        showCustomAlert("Search failed. Please try again.");
     }
 }
 
+// ===============================
+// DRAW ROUTE (TomTom Routing API)
+// ===============================
+
 async function drawRoute() {
     if (!currentCoords || !destinationCoords) {
-        showCustomAlert("Select both locations");
+        console.log("Waiting for both locations...");
         return;
     }
 
     try {
-        const response = await fetch(
-            `https://api.tomtom.com/routing/1/calculateRoute/${currentCoords[1]},${currentCoords[0]}:${destinationCoords[1]},${destinationCoords[0]}/json?key=RlUjrRnVgicCym6rNTEWTDxJa7URNexi`
-        );
-
+        // TomTom Routing API - format: lat,lon:lat,lon
+        const routeUrl = `https://api.tomtom.com/routing/1/calculateRoute/${currentCoords[1]},${currentCoords[0]}:${destinationCoords[1]},${destinationCoords[0]}/json?key=${TOMTOM_KEY}&travelMode=car&traffic=true`;
+        
+        const response = await fetch(routeUrl);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+        
         const data = await response.json();
 
-        if (!data.routes || !data.routes.length) {
-            showCustomAlert("Route not found");
+        if (!data.routes || data.routes.length === 0) {
+            showCustomAlert("Route not found. Please select different locations.");
             return;
         }
 
         const route = data.routes[0];
-        const points = route.legs[0].points.map(p => [p.longitude, p.latitude]);
+        const summary = route.summary;
+        
+        // Extract route coordinates
+        const routeCoords = route.legs[0].points.map(p => [p.longitude, p.latitude]);
 
+        // Create GeoJSON
         const geojson = {
             type: "Feature",
             geometry: {
                 type: "LineString",
-                coordinates: points
+                coordinates: routeCoords
             }
         };
 
+        // Remove existing route layer and source
         if (map.getLayer("route")) {
             map.removeLayer("route");
         }
@@ -835,38 +873,93 @@ async function drawRoute() {
             map.removeSource("route");
         }
 
+        // Add route source
         map.addSource("route", {
             type: "geojson",
             data: geojson
         });
 
+        // Add route layer with gradient effect
         map.addLayer({
             id: "route",
             type: "line",
             source: "route",
+            layout: {
+                "line-join": "round",
+                "line-cap": "round"
+            },
             paint: {
                 "line-color": "#2563eb",
-                "line-width": 8
+                "line-width": 8,
+                "line-opacity": 0.9
             }
         });
 
+        // Fit map to route bounds with padding
         const bounds = new tt.LngLatBounds();
-        points.forEach(point => {
-            bounds.extend(point);
+        routeCoords.forEach(coord => {
+            bounds.extend(coord);
         });
 
-        map.fitBounds(bounds, { padding: 80 });
+        map.fitBounds(bounds, {
+            padding: {
+                top: 100,
+                bottom: 100,
+                left: 100,
+                right: 100
+            },
+            duration: 1500,
+            maxZoom: 14
+        });
 
-        liveBusState[currentBus].active = true;
-        liveBusState[currentBus].routeGeo = geojson;
-        liveBusState[currentBus].eta = Math.ceil(route.summary.travelTimeInSeconds / 60);
+        // Update live bus state
+        if (liveBusState[currentBus]) {
+            liveBusState[currentBus].active = true;
+            liveBusState[currentBus].routeGeo = geojson;
+            liveBusState[currentBus].eta = Math.ceil(summary.travelTimeInSeconds / 60);
+            liveBusState[currentBus].distance = (summary.lengthInMeters / 1000).toFixed(1);
+        }
 
+        // Update UI panels
         updateParentPanel(currentBus);
         filterBusForUser(currentRole === "admin" ? "all" : currentBus);
+
+        console.log("Route drawn successfully. ETA:", liveBusState[currentBus]?.eta, "mins");
+
     } catch(err) {
-        console.error(err);
-        showCustomAlert("Route generation failed");
+        console.error("Route error:", err);
+        showCustomAlert("Route generation failed. Please try again.");
     }
+}
+
+// ===============================
+// CLEAR ROUTE AND MARKERS
+// ===============================
+
+function clearRouteAndMarkers() {
+    // Clear markers
+    if (currentMarker) {
+        currentMarker.remove();
+        currentMarker = null;
+    }
+    
+    if (destinationMarker) {
+        destinationMarker.remove();
+        destinationMarker = null;
+    }
+    
+    // Clear route
+    if (map.getLayer("route")) {
+        map.removeLayer("route");
+    }
+    
+    if (map.getSource("route")) {
+        map.removeSource("route");
+    }
+    
+    // Reset coordinates
+    currentCoords = null;
+    destinationCoords = null;
 }
 
 // EXPORT ALL FUNCTIONS TO GLOBAL SCOPE
@@ -912,6 +1005,7 @@ function resetBus(busId) {
         return;
     }
 
+    // Reset bus state
     liveBusState[busId] = {
         active: false,
         current: null,
@@ -920,14 +1014,12 @@ function resetBus(busId) {
         routeGeo: null
     };
 
-    if (map.getLayer("route")) {
-        map.removeLayer("route");
+    // Clear route and markers for this bus
+    if (busId === currentBus) {
+        clearRouteAndMarkers();
     }
 
-    if (map.getSource("route")) {
-        map.removeSource("route");
-    }
-
+    // Update UI
     filterBusForUser(currentRole === "admin" ? "all" : currentBus);
     updateParentPanel(busId);
 
