@@ -685,72 +685,200 @@ let currentMarker = null;
 let destinationMarker = null;
 
 // ===============================
+// QUERY NORMALIZATION & AUTO-CORRECTION
+// ===============================
+
+function normalizeQuery(query) {
+    // Trim and lowercase
+    let normalized = query.trim().toLowerCase();
+    
+    // Common Mumbai station spelling corrections
+    const corrections = {
+        'bhayander': 'bhayandar',
+        'bhayandar': 'bhayandar',
+        'bhayandar sttion': 'bhayandar station',
+        'bhayandar stn': 'bhayandar station',
+        'mira road': 'mira road',
+        'mira rd': 'mira road',
+        'mira road sttion': 'mira road station',
+        'mira road stn': 'mira road station',
+        'dahisar': 'dahisar',
+        'dahisar sttion': 'dahisar station',
+        'dahisar stn': 'dahisar station',
+        'borivali': 'borivali',
+        'borivali sttion': 'borivali station',
+        'borivali stn': 'borivali station',
+        'andheri': 'andheri',
+        'andheri sttion': 'andheri station',
+        'andheri stn': 'andheri station',
+        'bandra': 'bandra',
+        'bandra sttion': 'bandra station',
+        'bandra stn': 'bandra station',
+        'dadar': 'dadar',
+        'dadar sttion': 'dadar station',
+        'dadar stn': 'dadar station',
+        'thane': 'thane',
+        'thane sttion': 'thane station',
+        'thane stn': 'thane station'
+    };
+    
+    // Apply corrections
+    for (const [wrong, correct] of Object.entries(corrections)) {
+        if (normalized.includes(wrong)) {
+            normalized = normalized.replace(wrong, correct);
+        }
+    }
+    
+    // Add railway station context if "station" or "stn" is detected
+    if (normalized.includes('station') || normalized.includes(' stn')) {
+        if (!normalized.includes('railway')) {
+            normalized = normalized.replace(/station/g, 'railway station');
+        }
+    }
+    
+    // Capitalize first letter of each word for better API matching
+    normalized = normalized.replace(/\b\w/g, char => char.toUpperCase());
+    
+    // Add Mumbai, Maharashtra, India context if not present
+    if (!normalized.includes('India') && 
+        !normalized.includes('Mumbai') &&
+        !normalized.includes('Maharashtra')) {
+        normalized += ', Mumbai, Maharashtra, India';
+    }
+    
+    console.log('Normalized query:', normalized);
+    return normalized;
+}
+
+// ===============================
 // SEARCH LOCATION (TomTom Fuzzy Search)
 // ===============================
 
 async function searchAndMove(type) {
-    console.log("SEARCH RUNNING:", type);
+    console.log('\n========== SEARCH START ==========');
+    console.log('Search type:', type);
     
-    const inputId = type === "current" ? "search-src" : "search-dest";
+    // Validate map instance
+    if (!map) {
+        console.error('ERROR: Map instance is undefined');
+        showCustomAlert('Map not loaded. Please refresh the page.');
+        return;
+    }
+    
+    // Get input element
+    const inputId = type === 'current' ? 'search-src' : 'search-dest';
     const inputEl = document.getElementById(inputId);
     
     if (!inputEl) {
-        console.error("Input element not found:", inputId);
+        console.error('ERROR: Input element not found:', inputId);
+        showCustomAlert('Search input not found');
         return;
     }
     
-    let query = inputEl.value.trim();
-
-    if (!query) {
-        showCustomAlert("Enter location");
+    // Get and validate raw query
+    let rawQuery = inputEl.value;
+    console.log('Raw user input:', rawQuery);
+    
+    if (!rawQuery || rawQuery.trim() === '') {
+        console.log('WARNING: Empty query');
+        showCustomAlert('Please enter a location');
         return;
     }
-
-    // Add India context for better accuracy
-    if (!query.toLowerCase().includes("india") && 
-        !query.toLowerCase().includes("mumbai") &&
-        !query.toLowerCase().includes("maharashtra")) {
-        query += ", Mumbai, Maharashtra, India";
-    }
-
+    
+    // Normalize query with auto-correction
+    const normalizedQuery = normalizeQuery(rawQuery);
+    console.log('Final query sent to API:', normalizedQuery);
+    
     try {
-        // Use TomTom Fuzzy Search API
-        const url = `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en-IN`;
+        // Build TomTom Fuzzy Search API URL
+        const baseUrl = 'https://api.tomtom.com/search/2/search';
+        const encodedQuery = encodeURIComponent(normalizedQuery);
+        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en-IN`;
         
+        console.log('Request URL:', url);
+        console.log('Sending fetch request...');
+        
+        // Make API request
         const response = await fetch(url);
         
+        console.log('Response status:', response.status);
+        console.log('Response OK:', response.ok);
+        
         if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
+            const errorText = await response.text();
+            console.error('HTTP Error Response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
+        // Parse JSON response
         const data = await response.json();
-
+        console.log('Raw API response:', JSON.stringify(data, null, 2));
+        
+        // Validate results
         if (!data.results || data.results.length === 0) {
-            showCustomAlert("Location not found. Try a different search term.");
+            console.log('WARNING: No results found for query');
+            showCustomAlert(`Location not found: "${rawQuery}".\n\nTry:\n- Adding "Mumbai" or "Maharashtra"\n- Checking spelling\n- Using full station name`);
             return;
         }
-
-        // Smart result selection - prioritize exact matches
-        let bestResult = data.results[0];
         
-        // If searching for station, prioritize results with "station" in name
-        if (query.toLowerCase().includes("station")) {
+        console.log(`Found ${data.results.length} results`);
+        
+        // Smart result selection
+        let bestResult = data.results[0];
+        console.log('Default best result:', bestResult.address?.freeformAddress);
+        
+        // Prioritize railway stations if query includes "station"
+        const queryLower = normalizedQuery.toLowerCase();
+        if (queryLower.includes('station') || queryLower.includes('railway')) {
+            console.log('Searching for station-prioritized result...');
+            
             for (const result of data.results) {
-                const poiName = (result.poi?.name || "").toLowerCase();
-                const address = (result.address?.freeformAddress || "").toLowerCase();
+                const poiName = (result.poi?.name || '').toLowerCase();
+                const address = (result.address?.freeformAddress || '').toLowerCase();
+                const resultTypes = result.type || '';
                 
-                if (poiName.includes("station") || address.includes("station")) {
+                console.log(`Checking: ${poiName || address} (type: ${resultTypes})`);
+                
+                // Prioritize results with "station" in name or address
+                if ((poiName.includes('station') || address.includes('station')) && 
+                    resultTypes === 'POI') {
                     bestResult = result;
+                    console.log('Selected station result:', bestResult.address?.freeformAddress);
                     break;
                 }
             }
         }
-
-        const coords = [bestResult.position.lon, bestResult.position.lat];
-        const displayName = bestResult.address?.freeformAddress || query;
-
-        // Update coordinates
-        if (type === "current") {
+        
+        // Parse coordinates
+        const lon = bestResult.position.lon;
+        const lat = bestResult.position.lat;
+        
+        console.log('Parsed coordinates:', { lat, lon });
+        console.log('Coordinate type:', typeof lat, typeof lon);
+        
+        // Validate coordinates are valid numbers
+        if (isNaN(lat) || isNaN(lon)) {
+            console.error('ERROR: Invalid coordinates', { lat, lon });
+            showCustomAlert('Invalid location coordinates. Please try again.');
+            return;
+        }
+        
+        const coords = [lon, lat];
+        const displayName = bestResult.address?.freeformAddress || normalizedQuery;
+        
+        console.log('Display name:', displayName);
+        console.log('Final coordinates array:', coords);
+        
+        // Remove old markers before adding new ones
+        if (type === 'current') {
+            console.log('Updating CURRENT location marker...');
+            
+            if (currentMarker) {
+                console.log('Removing old current marker');
+                currentMarker.remove();
+                currentMarker = null;
+            }
+            
             currentCoords = coords;
             
             // Update live bus state
@@ -759,24 +887,30 @@ async function searchAndMove(type) {
                     name: displayName,
                     coords: coords
                 };
+                console.log('Updated liveBusState.current');
             }
-
-            // Remove old marker
-            if (currentMarker) {
-                currentMarker.remove();
-            }
-
+            
             // Add new marker
             currentMarker = new tt.Marker({
-                color: "#2563eb",
+                color: '#2563eb',
                 draggable: false
             })
             .setLngLat(coords)
             .addTo(map)
             .setPopup(new tt.Popup({ offset: 35 })
                 .setHTML(`<strong>Current Location</strong><br>${displayName}`));
-
+            
+            console.log('New current marker added');
+            
         } else {
+            console.log('Updating DESTINATION location marker...');
+            
+            if (destinationMarker) {
+                console.log('Removing old destination marker');
+                destinationMarker.remove();
+                destinationMarker = null;
+            }
+            
             destinationCoords = coords;
             
             // Update live bus state
@@ -785,40 +919,57 @@ async function searchAndMove(type) {
                     name: displayName,
                     coords: coords
                 };
+                console.log('Updated liveBusState.destination');
             }
-
-            // Remove old marker
-            if (destinationMarker) {
-                destinationMarker.remove();
-            }
-
+            
             // Add new marker
             destinationMarker = new tt.Marker({
-                color: "#ef4444",
+                color: '#ef4444',
                 draggable: false
             })
             .setLngLat(coords)
             .addTo(map)
             .setPopup(new tt.Popup({ offset: 35 })
                 .setHTML(`<strong>Destination</strong><br>${displayName}`));
+            
+            console.log('New destination marker added');
         }
-
-        // Smooth map movement to new location
+        
+        // Smooth map movement
+        console.log('Flying to location...');
         map.flyTo({
             center: coords,
             zoom: 15,
             duration: 1500,
             essential: true
         });
-
+        
         // Draw route if both locations are set
         if (currentCoords && destinationCoords) {
-            setTimeout(() => drawRoute(), 500);
+            console.log('Both locations set - will draw route in 500ms');
+            console.log('Current coords:', currentCoords);
+            console.log('Destination coords:', destinationCoords);
+            
+            setTimeout(() => {
+                console.log('Triggering drawRoute()...');
+                drawRoute();
+            }, 500);
+        } else {
+            console.log('Waiting for second location to draw route');
+            console.log('Current coords:', currentCoords);
+            console.log('Destination coords:', destinationCoords);
         }
-
+        
+        console.log('========== SEARCH COMPLETE ==========\n');
+        
     } catch(error) {
-        console.error("Search error:", error);
-        showCustomAlert("Search failed. Please try again.");
+        console.error('\n========== SEARCH ERROR ==========');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('====================================\n');
+        
+        showCustomAlert(`Search failed:\n${error.message}\n\nCheck browser console (F12) for details.`);
     }
 }
 
@@ -827,33 +978,92 @@ async function searchAndMove(type) {
 // ===============================
 
 async function drawRoute() {
+    console.log('\n========== ROUTE DRAW START ==========');
+    
+    // Validate map instance
+    if (!map) {
+        console.error('ERROR: Map instance is undefined');
+        showCustomAlert('Map not loaded. Please refresh the page.');
+        return;
+    }
+    
+    // Validate coordinates
     if (!currentCoords || !destinationCoords) {
-        console.log("Waiting for both locations...");
+        console.log('WARNING: Missing coordinates');
+        console.log('Current coords:', currentCoords);
+        console.log('Destination coords:', destinationCoords);
+        console.log('Waiting for both locations...');
+        return;
+    }
+    
+    console.log('Current coords:', currentCoords);
+    console.log('Destination coords:', destinationCoords);
+    
+    // Validate coordinate format [lon, lat]
+    if (!Array.isArray(currentCoords) || currentCoords.length !== 2) {
+        console.error('ERROR: Invalid currentCoords format', currentCoords);
+        showCustomAlert('Invalid current location data');
+        return;
+    }
+    
+    if (!Array.isArray(destinationCoords) || destinationCoords.length !== 2) {
+        console.error('ERROR: Invalid destinationCoords format', destinationCoords);
+        showCustomAlert('Invalid destination location data');
         return;
     }
 
     try {
         // TomTom Routing API - format: lat,lon:lat,lon
-        const routeUrl = `https://api.tomtom.com/routing/1/calculateRoute/${currentCoords[1]},${currentCoords[0]}:${destinationCoords[1]},${destinationCoords[0]}/json?key=${TOMTOM_KEY}&travelMode=car&traffic=true`;
+        const currentLat = currentCoords[1];
+        const currentLon = currentCoords[0];
+        const destLat = destinationCoords[1];
+        const destLon = destinationCoords[0];
+        
+        console.log('Route coordinates:', {
+            from: { lat: currentLat, lon: currentLon },
+            to: { lat: destLat, lon: destLon }
+        });
+        
+        const routeUrl = `https://api.tomtom.com/routing/1/calculateRoute/${currentLat},${currentLon}:${destLat},${destLon}/json?key=${TOMTOM_KEY}&travelMode=car&traffic=true`;
+        
+        console.log('Route request URL:', routeUrl);
+        console.log('Sending route request...');
         
         const response = await fetch(routeUrl);
         
+        console.log('Route response status:', response.status);
+        console.log('Route response OK:', response.ok);
+        
         if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
+            const errorText = await response.text();
+            console.error('HTTP Error Response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const data = await response.json();
+        console.log('Raw route API response:', JSON.stringify(data, null, 2));
 
         if (!data.routes || data.routes.length === 0) {
-            showCustomAlert("Route not found. Please select different locations.");
+            console.log('WARNING: No routes found');
+            showCustomAlert('Route not found. Please select different locations.');
             return;
         }
 
         const route = data.routes[0];
         const summary = route.summary;
         
+        console.log('Route summary:', {
+            travelTime: summary.travelTimeInSeconds + 's',
+            distance: summary.lengthInMeters + 'm',
+            eta: Math.ceil(summary.travelTimeInSeconds / 60) + 'mins'
+        });
+        
         // Extract route coordinates
         const routeCoords = route.legs[0].points.map(p => [p.longitude, p.latitude]);
+        
+        console.log('Route points count:', routeCoords.length);
+        console.log('First point:', routeCoords[0]);
+        console.log('Last point:', routeCoords[routeCoords.length - 1]);
 
         // Create GeoJSON
         const geojson = {
@@ -863,23 +1073,36 @@ async function drawRoute() {
                 coordinates: routeCoords
             }
         };
+        
+        console.log('GeoJSON created successfully');
 
-        // Remove existing route layer and source
+        // Remove existing route layer and source (clear stale state)
+        console.log('Removing old route layer/source if exists...');
+        
         if (map.getLayer("route")) {
+            console.log('Removing old route layer');
             map.removeLayer("route");
+        } else {
+            console.log('No existing route layer found');
         }
 
         if (map.getSource("route")) {
+            console.log('Removing old route source');
             map.removeSource("route");
+        } else {
+            console.log('No existing route source found');
         }
 
         // Add route source
+        console.log('Adding new route source...');
         map.addSource("route", {
             type: "geojson",
             data: geojson
         });
+        console.log('Route source added');
 
         // Add route layer with gradient effect
+        console.log('Adding new route layer...');
         map.addLayer({
             id: "route",
             type: "line",
@@ -894,13 +1117,18 @@ async function drawRoute() {
                 "line-opacity": 0.9
             }
         });
+        console.log('Route layer added');
 
         // Fit map to route bounds with padding
+        console.log('Calculating route bounds...');
         const bounds = new tt.LngLatBounds();
         routeCoords.forEach(coord => {
             bounds.extend(coord);
         });
-
+        
+        console.log('Route bounds:', bounds);
+        console.log('Fitting map to bounds...');
+        
         map.fitBounds(bounds, {
             padding: {
                 top: 100,
@@ -913,22 +1141,38 @@ async function drawRoute() {
         });
 
         // Update live bus state
+        console.log('Updating live bus state...');
         if (liveBusState[currentBus]) {
             liveBusState[currentBus].active = true;
             liveBusState[currentBus].routeGeo = geojson;
             liveBusState[currentBus].eta = Math.ceil(summary.travelTimeInSeconds / 60);
             liveBusState[currentBus].distance = (summary.lengthInMeters / 1000).toFixed(1);
+            
+            console.log('Live state updated:', {
+                active: liveBusState[currentBus].active,
+                eta: liveBusState[currentBus].eta + ' mins',
+                distance: liveBusState[currentBus].distance + ' km'
+            });
         }
 
         // Update UI panels
+        console.log('Updating UI panels...');
         updateParentPanel(currentBus);
         filterBusForUser(currentRole === "admin" ? "all" : currentBus);
 
-        console.log("Route drawn successfully. ETA:", liveBusState[currentBus]?.eta, "mins");
+        console.log('========== ROUTE DRAW COMPLETE ==========\n');
+        console.log('Route drawn successfully. ETA:', liveBusState[currentBus]?.eta, 'mins');
 
     } catch(err) {
-        console.error("Route error:", err);
-        showCustomAlert("Route generation failed. Please try again.");
+        console.error('\n========== ROUTE DRAW ERROR ==========');
+        console.error('Error type:', err.name);
+        console.error('Error message:', err.message);
+        console.error('Error stack:', err.stack);
+        console.error('Current coords at error:', currentCoords);
+        console.error('Destination coords at error:', destinationCoords);
+        console.error('====================================\n');
+        
+        showCustomAlert(`Route generation failed:\n${err.message}\n\nCheck browser console (F12) for details.`);
     }
 }
 
