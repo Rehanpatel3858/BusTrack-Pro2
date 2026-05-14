@@ -481,9 +481,27 @@ function showResetConfirm(busId) {
     
     if (confirm(`Reset bus ${formatBusID(busId)}?`)) {
         let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
-        fleet[busId] = { active: false };
+        // Reset ALL data for this bus
+        fleet[busId] = { active: false, from: null, to: null, eta: null, currentCoords: null, destinationCoords: null, routeGeo: null };
         localStorage.setItem("fleet_data", JSON.stringify(fleet));
+        
+        // Clear local state
+        if (liveBusState[busId]) {
+            liveBusState[busId] = { active: false };
+        }
+        
+        // If it's the current active bus, clear map
+        if (busId === activeBusID) {
+            if (currentMarker) currentMarker.remove();
+            if (destinationMarker) destinationMarker.remove();
+            if (map && map.getLayer("route")) map.removeLayer("route");
+            if (map && map.getSource("route")) map.removeSource("route");
+            currentCoords = null;
+            destinationCoords = null;
+        }
+
         showToast(`Bus ${formatBusID(busId)} reset`);
+        syncData();
     }
     
     setTimeout(() => {
@@ -692,14 +710,8 @@ function filterBusForUser(busId) {
     const fleetContainer = document.querySelector(".fleet-list");
     if (!fleetContainer) return;
 
-    const buses = [
-        "bus01",
-        "bus02",
-        "bus03",
-        "bus04",
-        "bus05",
-        "bus06"
-    ];
+    const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
+    const buses = ["bus01", "bus02", "bus03", "bus04", "bus05", "bus06"];
 
     fleetContainer.innerHTML = "";
 
@@ -708,7 +720,7 @@ function filterBusForUser(busId) {
             return;
         }
 
-        const data = liveBusState[bus];
+        const data = liveBusState[bus] || {};
         const status = data.active ? "LIVE" : "OFFLINE";
         const statusClass = data.active ? "live" : "offline";
         const display = bus.replace("bus", "B-");
@@ -1231,13 +1243,13 @@ async function drawRoute() {
 
         // Update UI panels
         updateParentPanel(currentBus);
-        const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
-        filterBusForUser(role === "admin" ? "all" : currentBus);
+        const activeRole = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
+        filterBusForUser(activeRole === "admin" ? "all" : currentBus);
 
         console.log('========== ROUTE DRAW COMPLETE ==========\n');
     } catch(err) {
         console.error('ROUTE DRAW ERROR:', err.message);
-        showCustomAlert(`Route generation failed: ${err.message}`);
+        showCustomAlert(`Sync failed: ${err.message}`);
     }
 }
 
