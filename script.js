@@ -1140,8 +1140,9 @@ async function drawRoute() {
             },
             paint: {
                 "line-color": "#2563eb",
-                "line-width": 8,
-                "line-opacity": 0.9
+                "line-width": 5,
+                "line-opacity": 0.85,
+                "line-blur": 0.5
             }
         });
         console.log('Route layer added');
