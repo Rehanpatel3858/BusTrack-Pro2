@@ -473,32 +473,6 @@ function updateParentPanel(busId) {
     if (etaText) etaText.innerText = d.eta ? d.eta + " mins" : "--";
 }
 
-function updateParentPanel(busId) {
-    const data = liveBusState[busId];
-    if (!data) return;
-
-    const fromText = document.getElementById("m-from");
-    const toText = document.getElementById("m-to");
-    const etaText = document.getElementById("m-eta");
-    const busLabel = document.getElementById("m-bus-id");
-
-    if (busLabel) {
-        busLabel.innerText = busId.toUpperCase();
-    }
-
-    if (fromText && data.current) {
-        fromText.innerText = data.current.name;
-    }
-
-    if (toText && data.destination) {
-        toText.innerText = data.destination.name;
-    }
-
-    if (etaText) {
-        etaText.innerText = data.eta ? data.eta + " mins" : "--";
-    }
-}
-
 // Reset bus
 function showResetConfirm(busId) {
     isUserInteracting = true;
@@ -551,7 +525,18 @@ function syncData() {
     if (!fleet[activeBusID]) return;
     const d = fleet[activeBusID];
     
-    if (role !== 'driver') {
+    // Update Dashboard Data based on role
+    if (role === 'driver') {
+        const dEtaText = document.getElementById('d-eta-text');
+        const dEtaBox = document.getElementById('driver-eta-box');
+        const dBusId = document.getElementById('d-bus-id');
+        
+        if (d && d.active) {
+            if (dEtaText) dEtaText.innerText = d.eta || "--";
+            if (dEtaBox) dEtaBox.style.display = 'block';
+            if (dBusId) dBusId.innerText = activeBusID.toUpperCase();
+        }
+    } else {
         updateParentPanel(activeBusID);
     }
     
@@ -743,25 +728,20 @@ function filterBusForUser(busId) {
 
             <div class="bus-card-details">
                 <div class="detail-row">
-                    <span class="detail-label">
-                        Route
-                    </span>
-                    <span class="detail-value">
-                        ${data.active ? "Active" : "--"}
-                    </span>
+                    <span class="detail-label">From</span>
+                    <span class="detail-value text-truncate">${data.from || "--"}</span>
                 </div>
-
                 <div class="detail-row">
-                    <span class="detail-label">
-                        ETA
-                    </span>
-                    <span class="detail-value">
-                        ${data.eta ? data.eta + " mins" : "--"}
-                    </span>
+                    <span class="detail-label">To</span>
+                    <span class="detail-value text-truncate">${data.to || "--"}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">ETA</span>
+                    <span class="detail-value">${data.eta ? data.eta + " mins" : "--"}</span>
                 </div>
 
-                ${currentRole !== "parent" ? `
-                <button class="reset-bus-btn" onclick="resetBus('${bus}')">
+                ${role !== "parent" ? `
+                <button class="reset-bus-btn" onclick="event.stopPropagation(); resetBus('${bus}')">
                     Reset Bus
                 </button>
                 ` : ""}
