@@ -2,33 +2,191 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Portal - BusTrack MB</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        
+        .admin-login-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .admin-login-card h2 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .admin-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+        
+        .admin-input::placeholder {
+            color: #64748b;
+        }
+        
+        .admin-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .admin-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+        }
+        
+        .admin-dashboard {
+            display: none;
+            padding: 20px;
+            background: #f1f5f9;
+            min-height: 100vh;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .fleet-table {
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .fleet-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .fleet-table th {
+            background: #f8fafc;
+            padding: 16px;
+            text-align: left;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        
+        .fleet-table td {
+            padding: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .status-active {
+            color: #10b981;
+            font-weight: 700;
+        }
+        
+        .status-inactive {
+            color: #ef4444;
+            font-weight: 700;
+        }
+    </style>
 </head>
 <body>
-    <div class="card login-card" id="admin-login">
-        <h2>School Admin</h2>
-        <input type="text" id="aUser" placeholder="Admin Username">
-        <input type="password" id="aPass" placeholder="Password">
-        <button class="btn btn-success" onclick="adminLogin()">Login</button>
+    <!-- Login Screen -->
+    <div class="admin-login-container" id="admin-login">
+        <div class="admin-login-card">
+            <h2>🚌 School Admin Portal</h2>
+            <input type="text" id="aUser" class="admin-input" placeholder="Admin Username">
+            <input type="password" id="aPass" class="admin-input" placeholder="Password" onkeypress="if(event.key==='Enter') adminLogin()">
+            <button class="admin-btn" onclick="adminLogin()">Login</button>
+        </div>
     </div>
 
-    <div id="admin-panel" style="display:none;" class="card" style="max-width:800px;">
-        <h2>Fleet Status</h2>
-        <table>
-            <tr><th>Bus</th><th>Status</th></tr>
-            <tr><td>MB-01</td><td><span style="color:green">Active</span></td></tr>
-        </table>
+    <!-- Dashboard -->
+    <div class="admin-dashboard" id="admin-panel">
+        <div class="admin-header">
+            <h2>🎯 Fleet Management Dashboard</h2>
+            <p>Monitor all buses in real-time</p>
+        </div>
+        
+        <div class="fleet-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Bus ID</th>
+                        <th>Driver</th>
+                        <th>Status</th>
+                        <th>Route</th>
+                        <th>ETA</th>
+                    </tr>
+                </thead>
+                <tbody id="fleet-status">
+                    <tr>
+                        <td><strong>B-01</strong></td>
+                        <td>John Smith</td>
+                        <td><span class="status-active">● Active</span></td>
+                        <td>Route A</td>
+                        <td>12 mins</td>
+                    </tr>
+                    <tr>
+                        <td><strong>B-02</strong></td>
+                        <td>Sarah Johnson</td>
+                        <td><span class="status-active">● Active</span></td>
+                        <td>Route B</td>
+                        <td>8 mins</td>
+                    </tr>
+                    <tr>
+                        <td><strong>B-03</strong></td>
+                        <td>Mike Davis</td>
+                        <td><span class="status-inactive">● Inactive</span></td>
+                        <td>Route C</td>
+                        <td>--</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
         function adminLogin() {
-            if (document.getElementById('aUser').value === "admin" && 
-                document.getElementById('aPass').value === "schooladmin789") {
+            const username = document.getElementById('aUser').value;
+            const password = document.getElementById('aPass').value;
+            
+            if (username === "admin" && password === "schooladmin789") {
                 document.getElementById('admin-login').style.display = "none";
                 document.getElementById('admin-panel').style.display = "block";
-            } else { alert("Access Denied"); }
+            } else {
+                alert("Access Denied: Invalid Credentials");
+            }
         }
     </script>
+    <!-- Load shared script -->
+    <script src="script.js"></script>
 </body>
 </html>

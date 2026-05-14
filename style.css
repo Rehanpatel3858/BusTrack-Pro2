@@ -46,7 +46,14 @@ body, html {
     height: 100%; 
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
     background: #0f172a;
-    overflow: hidden; 
+    overflow: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Prevent horizontal overflow */
+body {
+    overflow-x: hidden;
+    max-width: 100vw;
 }
 
 /* ============================================
@@ -771,11 +778,64 @@ body, html {
     background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
 }
 
+/* Sync Status Indicator */
+.sync-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    margin-right: 12px;
+    animation: fadeInSync 0.3s ease;
+}
+
+@keyframes fadeInSync {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sync-dot {
+    width: 8px;
+    height: 8px;
+    background: #f59e0b;
+    border-radius: 50%;
+    animation: pulseSync 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseSync {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+.sync-text {
+    color: #f59e0b;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 /* Dashboard Layout */
 .dashboard-wrapper { 
     display: flex; 
     height: calc(100vh - 70px);
     background: #f1f5f9;
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
 }
 
 /* Sidebar */
@@ -790,7 +850,6 @@ body, html {
     overflow-x: hidden;
     box-shadow: 4px 0 20px rgba(0,0,0,0.1);
     position: relative;
-    resize: horizontal;
 }
 
 /* Resize Handle */
@@ -1589,11 +1648,49 @@ body, html {
     flex: 1;
     position: relative;
     background: #e2e8f0;
+    z-index: 1;
 }
 
 #map { 
     height: 100%;
     width: 100%;
+    position: relative;
+    z-index: 0;
+}
+
+/* Fix Leaflet map controls - CRITICAL FOR MOBILE */
+.leaflet-control-zoom {
+    z-index: 1000 !important;
+    pointer-events: auto !important;
+}
+
+.leaflet-control-zoom a {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    touch-action: manipulation;
+}
+
+.leaflet-control-container {
+    z-index: 1000 !important;
+    pointer-events: none;
+}
+
+.leaflet-control-container > * {
+    pointer-events: auto;
+}
+
+/* Ensure map is clickable and not blocked */
+.leaflet-container {
+    z-index: 0 !important;
+    touch-action: none;
+}
+
+/* Fix map touch interactions on mobile */
+@media (max-width: 768px) {
+    .leaflet-control-zoom {
+        transform: scale(1.2);
+        transform-origin: top left;
+    }
 }
 
 /* Map Overlay Controls */
@@ -1812,6 +1909,378 @@ body, html {
     box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
 }
 
+/* GPS Location Button */
+.btn-gps-location {
+    width: 100%;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-gps-location:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-gps-location:active {
+    transform: translateY(0);
+}
+
+.gps-icon {
+    font-size: 1.1rem;
+}
+
+.gps-text {
+    white-space: nowrap;
+}
+
+/* ============================================
+   MOBILE RESPONSIVE DESIGN - COMPREHENSIVE
+   ============================================ */
+
+/* Tablet and Mobile (768px and below) */
+@media (max-width: 768px) {
+    /* Dashboard Layout - Stack vertically */
+    .dashboard-wrapper {
+        flex-direction: column;
+        height: calc(100vh - 70px);
+    }
+
+    /* Sidebar - Full width, auto height */
+    .pro-sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 40vh;
+        overflow-y: auto;
+        padding: 20px;
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    /* Map - Fixed height on mobile */
+    .pro-map-view {
+        height: 60vh;
+        flex: none;
+    }
+
+    /* Navbar - Responsive */
+    .pro-navbar {
+        padding: 0 15px;
+        height: 60px;
+    }
+
+    .pro-brand {
+        font-size: 1rem;
+    }
+
+    .nav-btn-v3 {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+    }
+
+    .sync-status-indicator {
+        padding: 4px 10px;
+        margin-right: 8px;
+    }
+
+    .sync-text {
+        font-size: 0.7rem;
+    }
+
+    /* Fleet List - Horizontal scroll on mobile */
+    .fleet-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .fleet-item {
+        flex: 0 0 auto;
+    }
+
+    .chip {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+
+    .btn-reset-bus {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+
+    /* Inputs - Prevent zoom on iOS */
+    input[type="text"],
+    input[type="password"] {
+        font-size: 16px !important;
+        padding: 12px 14px;
+    }
+
+    .side-input-v3 {
+        font-size: 16px !important;
+    }
+
+    /* Buttons - Larger touch targets */
+    button {
+        min-height: 44px;
+    }
+
+    .btn-publish-v3 {
+        padding: 14px 20px;
+        font-size: 0.95rem;
+    }
+
+    .btn-gps-location {
+        padding: 14px 16px;
+        font-size: 0.95rem;
+    }
+
+    /* Monitor Card - Responsive */
+    .glass-monitor-card {
+        padding: 20px;
+    }
+
+    .m-title {
+        font-size: 0.9rem;
+    }
+
+    .m-eta-hero {
+        font-size: 1.8rem;
+    }
+
+    /* Modal - Full width on mobile */
+    .modal-content {
+        width: 90%;
+        max-width: 400px;
+        padding: 25px 20px;
+        margin: 20px;
+    }
+
+    .modal-title {
+        font-size: 1.2rem;
+    }
+
+    .modal-message {
+        font-size: 0.9rem;
+    }
+
+    .modal-btn {
+        padding: 12px 20px;
+        font-size: 0.9rem;
+    }
+
+    /* Toast - Mobile positioning */
+    .toast-ui {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        padding: 14px 18px;
+        font-size: 0.9rem;
+    }
+
+    /* Login Page - Mobile */
+    .login-card-v3 {
+        width: 90%;
+        max-width: 400px;
+        padding: 30px 25px;
+        margin: 20px;
+    }
+
+    .brand-v3 {
+        font-size: 1.8rem;
+    }
+
+    .brand-sub-v3 {
+        font-size: 0.85rem;
+    }
+
+    .role-pills-v3 {
+        padding: 14px 20px;
+        font-size: 0.95rem;
+    }
+
+    .modern-input-v3 {
+        font-size: 16px !important;
+        padding: 14px 16px;
+    }
+
+    .btn-primary-v3 {
+        padding: 16px;
+        font-size: 1rem;
+    }
+}
+
+/* Small Mobile (480px and below) */
+@media (max-width: 480px) {
+    /* Navbar - Compact */
+    .pro-navbar {
+        height: 55px;
+        padding: 0 10px;
+    }
+
+    .pro-brand {
+        font-size: 0.9rem;
+    }
+
+    .badge-v3 {
+        display: none;
+    }
+
+    .nav-btn-group {
+        gap: 6px;
+    }
+
+    .nav-btn-v3 {
+        padding: 6px 10px;
+        font-size: 0.7rem;
+    }
+
+    .sync-status-indicator {
+        padding: 3px 8px;
+        margin-right: 6px;
+    }
+
+    .sync-dot {
+        width: 6px;
+        height: 6px;
+    }
+
+    .sync-text {
+        font-size: 0.65rem;
+    }
+
+    /* Sidebar - Minimal padding */
+    .pro-sidebar {
+        padding: 15px;
+        max-height: 35vh;
+    }
+
+    .sidebar-tag {
+        font-size: 0.65rem;
+        margin-bottom: 10px;
+    }
+
+    /* Map - Larger on small screens */
+    .pro-map-view {
+        height: 65vh;
+    }
+
+    /* Fleet chips - Compact */
+    .chip {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+
+    .btn-reset-bus {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+
+    /* ETA Pill - Responsive */
+    .eta-pill-v3 {
+        padding: 10px 14px;
+        font-size: 0.85rem;
+    }
+
+    /* Buttons - Full width */
+    .btn-publish-v3,
+    .btn-gps-location {
+        width: 100%;
+        padding: 12px 16px;
+    }
+
+    /* Monitor card - Compact */
+    .m-details p {
+        font-size: 0.85rem;
+    }
+
+    .m-eta-hero {
+        font-size: 1.5rem;
+    }
+
+    .m-eta-hero small {
+        font-size: 0.7rem;
+    }
+
+    /* Login - Compact */
+    .login-card-v3 {
+        width: 95%;
+        padding: 25px 20px;
+    }
+
+    .brand-v3 {
+        font-size: 1.5rem;
+    }
+
+    .role-grid {
+        gap: 10px;
+    }
+
+    .role-pills-v3 {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Landscape mode on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .pro-sidebar {
+        max-height: 50vh;
+    }
+
+    .pro-map-view {
+        height: 50vh;
+    }
+
+    .login-card-v3 {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Remove hover effects on touch devices */
+    .chip:hover,
+    .btn-reset-bus:hover,
+    .nav-btn-v3:hover,
+    .btn-publish-v3:hover,
+    .btn-gps-location:hover {
+        transform: none;
+    }
+
+    /* Active state for touch */
+    .chip:active {
+        transform: scale(0.95);
+    }
+
+    .btn-reset-bus:active {
+        transform: scale(0.9);
+    }
+
+    .nav-btn-v3:active {
+        transform: scale(0.95);
+    }
+
+    .btn-publish-v3:active,
+    .btn-gps-location:active {
+        transform: scale(0.98);
+    }
+}
+
 /* ============================================
    ANIMATIONS & INTERACTIONS
    ============================================ */
@@ -1960,4 +2429,168 @@ body, html {
     height: 40px;
     font-size: 1.1rem;
   }
+}
+
+/* Admin Bus Cards */
+.admin-bus-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.admin-bus-card:hover {
+    transform: translateY(-3px);
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(59,130,246,0.5);
+}
+
+.bus-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.bus-id-badge {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+    padding: 10px 16px;
+    border-radius: 12px;
+}
+
+.status-badge.live {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.bus-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    color: white;
+    font-size: 0.85rem;
+}
+
+.detail-label {
+    color: #94a3b8;
+}
+
+.detail-value {
+    color: white;
+    font-weight: 700;
+}
+
+/* Custom Alert */
+.custom-alert {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.custom-alert-box {
+    width: 360px;
+    background: linear-gradient(180deg, #0f172a, #111827);
+    border-radius: 18px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    animation: popupFade 0.25s ease;
+}
+
+.alert-header {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.alert-message {
+    color: #cbd5e1;
+    font-size: 1rem;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.alert-btn {
+    width: 100%;
+    border: none;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+@keyframes popupFade {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Role Badge */
+.role-badge {
+    margin: 18px auto 8px;
+    width: fit-content;
+    min-width: 210px;
+    padding: 12px 28px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.88);
+    color: #111827;
+    border: 1px solid rgba(255,255,255,0.5);
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    backdrop-filter: blur(14px);
+    text-align: center;
+}
+
+/* Reset Bus Button */
+.reset-bus-btn {
+    width: 100%;
+    margin-top: 14px;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    font-weight: 700;
+    transition: 0.3s;
+}
+
+.reset-bus-btn:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
 }

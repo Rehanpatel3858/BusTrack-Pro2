@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - setTempRole Function</title>
+</head>
+<body>
+    <h1>Testing setTempRole Function</h1>
+    <button onclick="setTempRole('driver')">Driver</button>
+    <button onclick="setTempRole('admin')">Admin</button>
+    <button onclick="setTempRole('parent')">Parent</button>
+    
+    <div id="output" style="margin-top: 20px; padding: 10px; background: #f0f0f0;"></div>
+    
+    <script src="script.js"></script>
+    <script>
+        // Test if function exists
+        window.onload = function() {
+            const output = document.getElementById('output');
+            if (typeof setTempRole === 'function') {
+                output.innerHTML = '<p style="color: green;">✅ setTempRole is defined!</p>';
+                console.log('✅ setTempRole:', typeof setTempRole);
+            } else {
+                output.innerHTML = '<p style="color: red;">❌ setTempRole is NOT defined!</p>';
+                console.error('❌ setTempRole not found');
+            }
+        };
+    </script>
+</body>
+</html>

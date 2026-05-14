@@ -2,14 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>BusTrack MB Pro | Fleet Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css"/>
     <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps-web.min.js"></script>
     <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/services/services-web.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js" defer></script>
+    <link rel="stylesheet" href="./style.css?v=101">
+    <script src="./script.js?v=101" defer></script>
 </head>
 <body>
     <!-- Toast Notification -->
@@ -39,12 +42,15 @@
             <h1 class="brand-v3">BusTrack<span>Pro</span></h1>
             <p class="brand-sub-v3">Mira Bhayandar Fleet Command</p>
             
+            <div id="role-badge" class="role-badge hidden">
+            </div>
+            
             <div id="role-selection-v3">
                 <p class="section-tag">Choose Workspace</p>
                 <div class="role-grid">
-                    <button class="role-pills-v3" onclick="setTempRole('parent')">Parent Portal</button>
-                    <button class="role-pills-v3" onclick="setTempRole('driver')">Driver Terminal</button>
-                    <button class="role-pills-v3" onclick="setTempRole('admin')">Admin Center</button>
+                    <button class="role-pills-v3" onclick="selectRole('parent')">Parent Portal</button>
+                    <button class="role-pills-v3" onclick="selectRole('driver')">Driver Terminal</button>
+                    <button class="role-pills-v3" onclick="selectRole('admin')">Admin Center</button>
                 </div>
             </div>
 
@@ -79,19 +85,11 @@
                 </div>
             </div>
             <div class="nav-btn-group">
-                <div class="notification-wrapper">
-                    <button class="nav-btn-v3" onclick="toggleNotifications()">🔔 <span class="badge" id="notif-badge">3</span></button>
-                    <div id="notification-panel" class="notification-panel">
-                        <div class="notif-header">
-                            <h4>Notifications</h4>
-                            <button onclick="clearNotifications()" class="clear-btn">Clear All</button>
-                        </div>
-                        <div class="notif-list" id="notif-list">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
+                <div id="sync-status" class="sync-status-indicator" style="display:none;">
+                    <span class="sync-dot"></span>
+                    <span class="sync-text">Sync Paused</span>
                 </div>
-                <button onclick="switchRole()" class="nav-btn-v3">🔄 Switch</button>
+                <button onclick="changeRole()" class="nav-btn-v3">🔄 Switch</button>
                 <button onclick="logout()" class="nav-btn-v3 nav-btn-red">Logout</button>
             </div>
         </nav>
@@ -138,12 +136,18 @@
                     
                     <div class="input-group">
                         <label class="input-label">Current Location</label>
-                        <input type="text" id="search-src" class="side-input-v3" placeholder="Search location..." onkeyup="if(event.key==='Enter') searchAndMove('current')">
+                        <input type="text" id="search-src" class="side-input-v3" placeholder="Search location..." autocomplete="off" onchange="searchAndMove('current')">
                     </div>
+                    
+                    <!-- GPS Location Button -->
+                    <button class="btn-gps-location" onclick="getUserLocation()" title="Use My Current Location">
+                        <span class="gps-icon">📍</span>
+                        <span class="gps-text">Use My Location</span>
+                    </button>
                     
                     <div class="input-group">
                         <label class="input-label">Destination</label>
-                        <input type="text" id="search-dest" class="side-input-v3" placeholder="Search destination..." onkeyup="if(event.key==='Enter') searchAndMove('destination')">
+                        <input type="text" id="search-dest" class="side-input-v3" placeholder="Search destination..." autocomplete="off" onchange="searchAndMove('destination')">
                     </div>
                     
                     <div id="driver-eta-box" class="eta-hero-card" style="display:none;">
@@ -230,6 +234,20 @@
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Custom Alert -->
+    <div id="custom-alert" class="custom-alert hidden">
+        <div class="custom-alert-box">
+            <div class="alert-header">
+                BusTrack Pro
+            </div>
+            <div id="custom-alert-message" class="alert-message">
+            </div>
+            <button class="alert-btn" onclick="closeCustomAlert()">
+                OK
+            </button>
         </div>
     </div>
 </body>
