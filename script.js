@@ -793,6 +793,13 @@ function normalizeQuery(query) {
         }
     }
     
+    // Specific Mira Bhayandar area refinement
+    if (normalized.includes('bhayandar') || normalized.includes('mira road')) {
+        if (!normalized.includes('mira bhayandar')) {
+            normalized += ' Mira Bhayandar';
+        }
+    }
+    
     // Capitalize first letter of each word for better API matching
     normalized = normalized.replace(/\b\w/g, char => char.toUpperCase());
     
@@ -815,10 +822,15 @@ async function searchAndMove(type) {
     console.log('\n========== SEARCH START ==========');
     console.log('Search type:', type);
     
+    // Set interaction flag to prevent sync interruptions
+    isUserInteracting = true;
+    lastUserActionTime = Date.now();
+    
     // Validate map instance
     if (!map) {
         console.error('ERROR: Map instance is undefined');
         showCustomAlert('Map not loaded. Please refresh the page.');
+        isUserInteracting = false;
         return;
     }
     
@@ -829,6 +841,7 @@ async function searchAndMove(type) {
     if (!inputEl) {
         console.error('ERROR: Input element not found:', inputId);
         showCustomAlert('Search input not found');
+        isUserInteracting = false;
         return;
     }
     
@@ -839,6 +852,7 @@ async function searchAndMove(type) {
     if (!rawQuery || rawQuery.trim() === '') {
         console.log('WARNING: Empty query');
         showCustomAlert('Please enter a location');
+        isUserInteracting = false;
         return;
     }
     
@@ -847,10 +861,11 @@ async function searchAndMove(type) {
     console.log('Final query sent to API:', normalizedQuery);
     
     try {
-        // Build TomTom Fuzzy Search API URL
+        // Build TomTom Fuzzy Search API URL with Mira Bhayandar area bias
+        // Lat: 19.2813, Lon: 72.8557 (Mira Bhayandar center)
         const baseUrl = 'https://api.tomtom.com/search/2/search';
         const encodedQuery = encodeURIComponent(normalizedQuery);
-        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en-US`;
+        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en-US&lat=19.2813&lon=72.8557&radius=20000`;
         
         console.log('Request URL:', url);
         console.log('Sending fetch request...');
@@ -875,6 +890,7 @@ async function searchAndMove(type) {
         if (!data.results || data.results.length === 0) {
             console.log('WARNING: No results found for query');
             showCustomAlert(`Location not found: "${rawQuery}".\n\nTry:\n- Adding "Mumbai" or "Maharashtra"\n- Checking spelling\n- Using full station name`);
+            isUserInteracting = false;
             return;
         }
         
@@ -884,149 +900,103 @@ async function searchAndMove(type) {
         let bestResult = data.results[0];
         console.log('Default best result:', bestResult.address?.freeformAddress);
         
-        // Prioritize railway stations if query includes "station"
+        // Advanced directional & landmark prioritization
         const queryLower = normalizedQuery.toLowerCase();
-        if (queryLower.includes('station') || queryLower.includes('railway')) {
-            console.log('Searching for station-prioritized result...');
-            
+        const hasEast = queryLower.includes('east');
+        const hasWest = queryLower.includes('west');
+        const hasStation = queryLower.includes('station') || queryLower.includes('railway');
+
+        console.log('Search preferences:', { hasEast, hasWest, hasStation });
+
+        if (hasStation || hasEast || hasWest) {
             for (const result of data.results) {
                 const poiName = (result.poi?.name || '').toLowerCase();
                 const address = (result.address?.freeformAddress || '').toLowerCase();
+                const combined = (poiName + ' ' + address).toLowerCase();
                 const resultTypes = result.type || '';
                 
-                console.log(`Checking: ${poiName || address} (type: ${resultTypes})`);
-                
-                // Prioritize results with "station" in name or address
-                if ((poiName.includes('station') || address.includes('station')) && 
-                    resultTypes === 'POI') {
+                // Prioritize station POIs if station is in query
+                if (hasStation && (poiName.includes('station') || address.includes('station')) && resultTypes === 'POI') {
                     bestResult = result;
-                    console.log('Selected station result:', bestResult.address?.freeformAddress);
-                    break;
+                    // If it also matches directional preference, we found the perfect match
+                    if ((hasEast && combined.includes('east')) || (hasWest && combined.includes('west'))) {
+                        break; 
+                    }
+                }
+                // Otherwise prioritize directional match
+                else if ((hasEast && combined.includes('east')) || (hasWest && combined.includes('west'))) {
+                    bestResult = result;
                 }
             }
         }
         
+        console.log('Selected final result:', bestResult.address?.freeformAddress);
+
         // Parse coordinates
         const lon = bestResult.position.lon;
         const lat = bestResult.position.lat;
         
-        console.log('Parsed coordinates:', { lat, lon });
-        console.log('Coordinate type:', typeof lat, typeof lon);
-        
         // Validate coordinates are valid numbers
         if (isNaN(lat) || isNaN(lon)) {
-            console.error('ERROR: Invalid coordinates', { lat, lon });
-            showCustomAlert('Invalid location coordinates. Please try again.');
-            return;
+            throw new Error('Invalid coordinates received from API');
         }
         
         const coords = [lon, lat];
         const displayName = bestResult.address?.freeformAddress || normalizedQuery;
         
-        console.log('Display name:', displayName);
-        console.log('Final coordinates array:', coords);
-        
-        // Remove old markers before adding new ones
+        // Ensure ALL old markers (stale state) are cleared
         if (type === 'current') {
-            console.log('Updating CURRENT location marker...');
-            
-            if (currentMarker) {
-                console.log('Removing old current marker');
-                currentMarker.remove();
-                currentMarker = null;
-            }
+            if (currentMarker) currentMarker.remove();
+            // Also clear legacy busMarker if it exists
+            if (typeof busMarker !== 'undefined' && busMarker) busMarker.remove();
             
             currentCoords = coords;
             
-            // Update live bus state
             if (liveBusState[currentBus]) {
-                liveBusState[currentBus].current = {
-                    name: displayName,
-                    coords: coords
-                };
-                console.log('Updated liveBusState.current');
+                liveBusState[currentBus].current = { name: displayName, coords: coords };
             }
             
-            // Add new marker
-            currentMarker = new tt.Marker({
-                color: '#2563eb',
-                draggable: false
-            })
-            .setLngLat(coords)
-            .addTo(map)
-            .setPopup(new tt.Popup({ offset: 35 })
-                .setHTML(`<strong>Current Location</strong><br>${displayName}`));
-            
-            console.log('New current marker added');
+            currentMarker = new tt.Marker({ color: '#2563eb' })
+                .setLngLat(coords)
+                .addTo(map)
+                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Current Location</strong><br>${displayName}`));
             
         } else {
-            console.log('Updating DESTINATION location marker...');
-            
-            if (destinationMarker) {
-                console.log('Removing old destination marker');
-                destinationMarker.remove();
-                destinationMarker = null;
-            }
+            if (destinationMarker) destinationMarker.remove();
+            // Also clear legacy destMarker if it exists
+            if (typeof destMarker !== 'undefined' && destMarker) destMarker.remove();
             
             destinationCoords = coords;
             
-            // Update live bus state
             if (liveBusState[currentBus]) {
-                liveBusState[currentBus].destination = {
-                    name: displayName,
-                    coords: coords
-                };
-                console.log('Updated liveBusState.destination');
+                liveBusState[currentBus].destination = { name: displayName, coords: coords };
             }
             
-            // Add new marker
-            destinationMarker = new tt.Marker({
-                color: '#ef4444',
-                draggable: false
-            })
-            .setLngLat(coords)
-            .addTo(map)
-            .setPopup(new tt.Popup({ offset: 35 })
-                .setHTML(`<strong>Destination</strong><br>${displayName}`));
-            
-            console.log('New destination marker added');
+            destinationMarker = new tt.Marker({ color: '#ef4444' })
+                .setLngLat(coords)
+                .addTo(map)
+                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Destination</strong><br>${displayName}`));
         }
         
-        // Smooth map movement
-        console.log('Flying to location...');
-        map.flyTo({
-            center: coords,
-            zoom: 15,
-            duration: 1500,
-            essential: true
-        });
+        // Fly to result
+        map.flyTo({ center: coords, zoom: 15, duration: 1500 });
         
-        // Draw route if both locations are set
+        // If both points exist, draw route
         if (currentCoords && destinationCoords) {
-            console.log('Both locations set - will draw route in 500ms');
-            console.log('Current coords:', currentCoords);
-            console.log('Destination coords:', destinationCoords);
-            
             setTimeout(() => {
-                console.log('Triggering drawRoute()...');
                 drawRoute();
             }, 500);
-        } else {
-            console.log('Waiting for second location to draw route');
-            console.log('Current coords:', currentCoords);
-            console.log('Destination coords:', destinationCoords);
         }
-        
-        console.log('========== SEARCH COMPLETE ==========\n');
-        
+
     } catch(error) {
         console.error('\n========== SEARCH ERROR ==========');
-        console.error('Error type:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-        console.error('====================================\n');
-        
-        showCustomAlert(`Search failed:\n${error.message}\n\nCheck browser console (F12) for details.`);
+        console.error('Error:', error.message);
+        showCustomAlert(`Search failed: ${error.message}`);
+    } finally {
+        // Release interaction lock after short delay to allow map to settle
+        setTimeout(() => {
+            isUserInteracting = false;
+        }, 2000);
     }
 }
 
