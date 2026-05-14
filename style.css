@@ -1954,8 +1954,9 @@ body {
 @media (max-width: 768px) {
     /* Dashboard Layout - Stack vertically */
     .dashboard-wrapper {
-        flex-direction: column;
-        height: calc(100vh - 70px);
+        flex-direction: column-reverse;
+        height: auto;
+        min-height: calc(100vh - 70px);
     }
 
     /* Sidebar - Full width, auto height */
@@ -1971,7 +1972,11 @@ body {
 
     /* Map - Fixed height on mobile */
     .pro-map-view {
-        height: 60vh;
+        height: 50vh;
+        min-height: 350px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
         flex: none;
     }
 
@@ -2374,7 +2379,7 @@ body {
 /* Mobile Optimization */
 @media (max-width: 768px) {
   .dashboard-wrapper {
-    flex-direction: column;
+    flex-direction: column-reverse;
   }
   
   .pro-sidebar {
@@ -2384,7 +2389,11 @@ body {
   }
   
   .pro-map-view {
-    height: 60vh;
+    height: 50vh;
+    min-height: 350px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
   
   .pro-navbar {

@@ -528,17 +528,29 @@ function executeReset() {}
 // Sync data
 function syncData() {
     if (isResetting) return;
-    // Don't block sync if it's not a driver interacting (Parent/Admin need live updates)
     const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
     if (role === 'driver' && isUserInteracting && (Date.now() - lastUserActionTime) < INTERACTION_COOLDOWN) return;
     
-    hideSyncStatus();
-    
     const fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
+    
+    // Sync all bus states to liveBusState for UI consistency
+    Object.keys(fleet).forEach(busId => {
+        if (!liveBusState[busId]) liveBusState[busId] = {};
+        liveBusState[busId] = { ...liveBusState[busId], ...fleet[busId] };
+    });
+    
+    // Update active buses count in header
+    const activeCount = Object.values(fleet).filter(b => b.active).length;
+    const countEl = document.getElementById('active-buses-count');
+    if (countEl) countEl.innerText = activeCount;
+
+    // Refresh fleet list UI
+    filterBusForUser(role === "admin" ? "all" : activeBusID);
+    
+    // Update active bus data
     if (!fleet[activeBusID]) return;
     const d = fleet[activeBusID];
     
-    // Update Text UI
     if (role !== 'driver') {
         updateParentPanel(activeBusID);
     }
@@ -642,13 +654,23 @@ function publishTrip() {
     lastUserActionTime = Date.now();
     
     let f = JSON.parse(localStorage.getItem("fleet_data")) || {};
-    f[activeBusID] = { ...f[activeBusID], active: true };
+    if (!f[activeBusID]) f[activeBusID] = {};
+    
+    f[activeBusID].active = true;
     localStorage.setItem("fleet_data", JSON.stringify(f));
+    
+    // Update local state immediately
+    if (!liveBusState[activeBusID]) liveBusState[activeBusID] = {};
+    liveBusState[activeBusID].active = true;
+    
     showToast(`Bus ${formatBusID(activeBusID)} is LIVE!`);
+    
+    // Refresh all UI components immediately
+    syncData();
     
     setTimeout(() => {
         isUserInteracting = false;
-    }, INTERACTION_COOLDOWN);
+    }, 1000);
 }
 
 function mapZoomIn() {
