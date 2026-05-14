@@ -439,28 +439,38 @@ function updateChipUI(id) {
 // Change bus
 function changeBus(busId) {
     currentBus = busId;
-    const data = liveBusState[busId];
+    activeBusID = busId;
     
+    // Clear current map state before switching
+    if (currentMarker) currentMarker.remove();
+    if (destinationMarker) destinationMarker.remove();
+    if (map && map.getLayer("route")) map.removeLayer("route");
+    if (map && map.getSource("route")) map.removeSource("route");
+    
+    // Update text UI
     const busTitle = document.getElementById("m-bus-id");
-    const fromText = document.getElementById("m-from");
-    const toText = document.getElementById("m-to");
-    const etaText = document.getElementById("m-eta");
-    
     if (busTitle) {
         busTitle.innerText = "VEHICLE: " + busId.toUpperCase();
     }
     
-    if (fromText) {
-        fromText.innerText = data && data.current ? data.current.name : "--";
-    }
-    
-    if (toText) {
-        toText.innerText = data && data.destination ? data.destination.name : "--";
-    }
-    
-    if (etaText) {
-        etaText.innerText = data && data.eta ? data.eta + " mins" : "--";
-    }
+    // Trigger immediate sync and map refresh
+    syncData();
+}
+
+function updateParentPanel(busId) {
+    const fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
+    const d = fleet[busId];
+    if (!d) return;
+
+    const fromText = document.getElementById("m-from");
+    const toText = document.getElementById("m-to");
+    const etaText = document.getElementById("m-eta");
+    const busLabel = document.getElementById("m-bus-id");
+
+    if (busLabel) busLabel.innerText = busId.toUpperCase();
+    if (fromText) fromText.innerText = d.from || "--";
+    if (toText) toText.innerText = d.to || "--";
+    if (etaText) etaText.innerText = d.eta ? d.eta + " mins" : "--";
 }
 
 function updateParentPanel(busId) {
@@ -518,28 +528,61 @@ function executeReset() {}
 // Sync data
 function syncData() {
     if (isResetting) return;
-    if (isUserInteracting && (Date.now() - lastUserActionTime) < INTERACTION_COOLDOWN) return;
+    // Don't block sync if it's not a driver interacting (Parent/Admin need live updates)
+    const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
+    if (role === 'driver' && isUserInteracting && (Date.now() - lastUserActionTime) < INTERACTION_COOLDOWN) return;
     
     hideSyncStatus();
     
-    const fleet = JSON.parse(localStorage.getItem("fleet_data"));
-    const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
-    
-    if (!fleet || !fleet[activeBusID]) return;
+    const fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
+    if (!fleet[activeBusID]) return;
     const d = fleet[activeBusID];
     
+    // Update Text UI
     if (role !== 'driver') {
-        const busIdEl = document.getElementById('m-bus-id');
-        if (busIdEl) busIdEl.innerText = "VEHICLE: " + formatBusID(activeBusID);
-        
-        const fromEl = document.getElementById('m-from');
-        if (fromEl) fromEl.innerText = "From: " + (d.from || "--");
-        
-        const toEl = document.getElementById('m-to');
-        if (toEl) toEl.innerText = "To: " + (d.to || "--");
-        
-        const etaEl = document.getElementById('m-eta');
-        if (etaEl) etaEl.innerText = d.eta || "--";
+        updateParentPanel(activeBusID);
+    }
+    
+    // Update Map UI if route data exists
+    if (d.currentCoords && d.destinationCoords && map) {
+        renderSyncRoute(d);
+    }
+}
+
+function renderSyncRoute(d) {
+    if (!map) return;
+    
+    // Update Markers
+    if (currentMarker) currentMarker.remove();
+    currentMarker = new tt.Marker({ color: '#2563eb' })
+        .setLngLat(d.currentCoords)
+        .addTo(map)
+        .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Current Location</strong><br>${d.from}`));
+
+    if (destinationMarker) destinationMarker.remove();
+    destinationMarker = new tt.Marker({ color: '#ef4444' })
+        .setLngLat(d.destinationCoords)
+        .addTo(map)
+        .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Destination</strong><br>${d.to}`));
+
+    // Update Polyline
+    if (d.routeGeo) {
+        if (map.getLayer("route")) map.removeLayer("route");
+        if (map.getSource("route")) map.removeSource("route");
+
+        map.addSource("route", { type: "geojson", data: d.routeGeo });
+        map.addLayer({
+            id: "route",
+            type: "line",
+            source: "route",
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+                "line-color": "#2563eb",
+                "line-width": 5,
+                "line-opacity": 0.85,
+                "line-blur": 0.5
+            }
+        });
     }
 }
 
@@ -782,22 +825,30 @@ function normalizeQuery(query) {
     // Apply corrections
     for (const [wrong, correct] of Object.entries(corrections)) {
         if (normalized.includes(wrong)) {
-            normalized = normalized.replace(wrong, correct);
+            normalized = normalized.replace(new RegExp(wrong, 'g'), correct);
         }
     }
     
-    // Add railway station context if "station" or "stn" is detected
+    // Directional and Station refinements for accuracy
+    const directions = ['east', 'west', 'north', 'south'];
+    let foundDirection = directions.find(d => normalized.includes(d));
+    
     if (normalized.includes('station') || normalized.includes(' stn')) {
         if (!normalized.includes('railway')) {
             normalized = normalized.replace(/station/g, 'railway station');
         }
     }
     
-    // Specific Mira Bhayandar area refinement
+    // Explicit area priority
     if (normalized.includes('bhayandar') || normalized.includes('mira road')) {
         if (!normalized.includes('mira bhayandar')) {
             normalized += ' Mira Bhayandar';
         }
+    }
+    
+    // Preserve directional context at the end for API
+    if (foundDirection && !normalized.toLowerCase().includes(foundDirection + ' station')) {
+        // Handled by API prioritization later, but ensure it's in the string
     }
     
     // Capitalize first letter of each word for better API matching
@@ -947,15 +998,7 @@ async function searchAndMove(type) {
         // Ensure ALL old markers (stale state) are cleared
         if (type === 'current') {
             if (currentMarker) currentMarker.remove();
-            // Also clear legacy busMarker if it exists
-            if (typeof busMarker !== 'undefined' && busMarker) busMarker.remove();
-            
             currentCoords = coords;
-            
-            if (liveBusState[currentBus]) {
-                liveBusState[currentBus].current = { name: displayName, coords: coords };
-            }
-            
             currentMarker = new tt.Marker({ color: '#2563eb' })
                 .setLngLat(coords)
                 .addTo(map)
@@ -963,21 +1006,26 @@ async function searchAndMove(type) {
             
         } else {
             if (destinationMarker) destinationMarker.remove();
-            // Also clear legacy destMarker if it exists
-            if (typeof destMarker !== 'undefined' && destMarker) destMarker.remove();
-            
             destinationCoords = coords;
-            
-            if (liveBusState[currentBus]) {
-                liveBusState[currentBus].destination = { name: displayName, coords: coords };
-            }
-            
             destinationMarker = new tt.Marker({ color: '#ef4444' })
                 .setLngLat(coords)
                 .addTo(map)
                 .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Destination</strong><br>${displayName}`));
         }
         
+        // Persist to LocalStorage for Sync
+        let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
+        if (!fleet[currentBus]) fleet[currentBus] = {};
+        
+        if (type === 'current') {
+            fleet[currentBus].from = displayName;
+            fleet[currentBus].currentCoords = coords;
+        } else {
+            fleet[currentBus].to = displayName;
+            fleet[currentBus].destinationCoords = coords;
+        }
+        localStorage.setItem("fleet_data", JSON.stringify(fleet));
+
         // Fly to result
         map.flyTo({ center: coords, zoom: 15, duration: 1500 });
         
@@ -1168,39 +1216,26 @@ async function drawRoute() {
             maxZoom: 14
         });
 
-        // Update live bus state
-        console.log('Updating live bus state...');
-        if (liveBusState[currentBus]) {
-            liveBusState[currentBus].active = true;
-            liveBusState[currentBus].routeGeo = geojson;
-            liveBusState[currentBus].eta = Math.ceil(summary.travelTimeInSeconds / 60);
-            liveBusState[currentBus].distance = (summary.lengthInMeters / 1000).toFixed(1);
-            
-            console.log('Live state updated:', {
-                active: liveBusState[currentBus].active,
-                eta: liveBusState[currentBus].eta + ' mins',
-                distance: liveBusState[currentBus].distance + ' km'
-            });
-        }
+        // Update live bus state and PERSIST for sync
+        let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
+        if (!fleet[currentBus]) fleet[currentBus] = {};
+        
+        fleet[currentBus].active = true;
+        fleet[currentBus].routeGeo = geojson;
+        fleet[currentBus].eta = Math.ceil(summary.travelTimeInSeconds / 60);
+        fleet[currentBus].distance = (summary.lengthInMeters / 1000).toFixed(1);
+        
+        localStorage.setItem("fleet_data", JSON.stringify(fleet));
 
         // Update UI panels
-        console.log('Updating UI panels...');
         updateParentPanel(currentBus);
-        filterBusForUser(currentRole === "admin" ? "all" : currentBus);
+        const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
+        filterBusForUser(role === "admin" ? "all" : currentBus);
 
         console.log('========== ROUTE DRAW COMPLETE ==========\n');
-        console.log('Route drawn successfully. ETA:', liveBusState[currentBus]?.eta, 'mins');
-
     } catch(err) {
-        console.error('\n========== ROUTE DRAW ERROR ==========');
-        console.error('Error type:', err.name);
-        console.error('Error message:', err.message);
-        console.error('Error stack:', err.stack);
-        console.error('Current coords at error:', currentCoords);
-        console.error('Destination coords at error:', destinationCoords);
-        console.error('====================================\n');
-        
-        showCustomAlert(`Route generation failed:\n${err.message}\n\nCheck browser console (F12) for details.`);
+        console.error('ROUTE DRAW ERROR:', err.message);
+        showCustomAlert(`Route generation failed: ${err.message}`);
     }
 }
 
