@@ -2507,7 +2507,7 @@ body {
 }
 
 .hidden {
-    display: none !important;
+    display: none;
 }
 
 .custom-alert-box {

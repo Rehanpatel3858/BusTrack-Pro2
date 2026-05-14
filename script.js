@@ -363,7 +363,7 @@ function renderFullFleetList() {
     fleetContainer.innerHTML = html;
 }
 
-<<<<<<< HEAD
+
 // Toggle bus card details
 function selectBusCard(busId) {
     // First, change the active bus
