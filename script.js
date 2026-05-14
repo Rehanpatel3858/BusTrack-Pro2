@@ -643,7 +643,7 @@ function searchAndMove(type) {
         idxSet: 'POI,Str,Geo',
         limit: 5, // Get multiple results for better accuracy
         countrySet: 'IN',
-        language: 'en-GB'
+        language: 'en-US' // Changed from 'en-GB' to 'en-US' to fix "Language tag 'en' not supported" error
     }).then((res) => {
         if (res.results && res.results.length > 0) {
             // Find the best match
@@ -706,8 +706,15 @@ function searchAndMove(type) {
             showToast("Location not found. Please try a different search.");
         }
     }).catch(err => {
-        console.error('Search error:', err);
-        showToast("Error searching location. Please try again.");
+        console.error('========== SEARCH ERROR ==========');
+        console.error('Error type:', err.constructor.name);
+        console.error('Error message:', err.message);
+        if (err.response) {
+            console.error('HTTP Status:', err.response.status);
+            console.error('Error Body:', err.response.data);
+        }
+        console.error('Error stack:', err.stack);
+        showToast("Error searching location. Please check console for details.");
     });
 }
 
