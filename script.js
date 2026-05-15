@@ -15,23 +15,23 @@ let endCoords = null;
 const authUsers = {
     admin: {
         username: "admin",
-        password: "admin123"
+        password: "Admin@BusTrack2026"
     },
     drivers: {
-        driver01: "driver123",
-        driver02: "driver123",
-        driver03: "driver123",
-        driver04: "driver123",
-        driver05: "driver123",
-        driver06: "driver123"
+        driver01: "Driver@BusTrack2026",
+        driver02: "Driver@BusTrack2026",
+        driver03: "Driver@BusTrack2026",
+        driver04: "Driver@BusTrack2026",
+        driver05: "Driver@BusTrack2026",
+        driver06: "Driver@BusTrack2026"
     },
     parents: {
-        student01: "student123",
-        student02: "student123",
-        student03: "student123",
-        student04: "student123",
-        student05: "student123",
-        student06: "student123"
+        student01: "Parent@BusTrack2026",
+        student02: "Parent@BusTrack2026",
+        student03: "Parent@BusTrack2026",
+        student04: "Parent@BusTrack2026",
+        student05: "Parent@BusTrack2026",
+        student06: "Parent@BusTrack2026"
     }
 };
 
@@ -168,18 +168,18 @@ function initializeFleetData() {
 // === AUTH FUNCTIONS ===
 function selectRole(role) {
     currentRole = role;
-    
+
     const roleBadge = document.getElementById("role-badge");
-    
+
     const roleTitles = {
         parent: "PARENT PORTAL",
         driver: "DRIVER TERMINAL",
         admin: "ADMIN CENTER"
     };
-    
+
     roleBadge.innerHTML = roleTitles[role];
     roleBadge.style.display = "block";
-    
+
     document.getElementById("role-selection-v3").style.display = "none";
     document.getElementById("auth-form-v3").style.display = "block";
 }
@@ -190,7 +190,7 @@ function selectRole(role) {
 function togglePasswordVisibility() {
     const passwordInput = document.getElementById('password');
     const toggleIcon = document.getElementById('password-toggle');
-    
+
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
         toggleIcon.textContent = '🔒'; // Icon for visible
@@ -261,7 +261,7 @@ function processLogin() {
 
         const assignedBus = parentBusMap[username];
         currentBus = assignedBus;
-        
+
         // PERSIST ROLE FOR SYNC
         sessionStorage.setItem("active_role", "parent");
         sessionStorage.setItem("active_user", username);
@@ -328,11 +328,11 @@ function launchDashboard() {
     const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
     const username = sessionStorage.getItem("active_user") || localStorage.getItem("active_user");
     activeBusID = sessionStorage.getItem("active_bus") || "bus01";
-    
+
     document.getElementById('role-label').innerText = role.toUpperCase();
     document.getElementById('driver-portal').style.display = (role === 'driver') ? 'block' : 'none';
     document.getElementById('monitor-portal').style.display = (role !== 'driver') ? 'block' : 'none';
-    
+
     renderFullFleetList();
     updateChipUI(activeBusID);
     initMap();
@@ -349,7 +349,7 @@ function changeRole() {
     const roleBadge = document.getElementById("role-badge");
     roleBadge.innerHTML = "";
     roleBadge.style.display = "none";
-    
+
     currentRole = null;
     document.getElementById('app-container').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
@@ -378,10 +378,10 @@ function formatBusID(id) {
 function renderFullFleetList() {
     const fleetContainer = document.querySelector('.fleet-list');
     if (!fleetContainer) return;
-    
+
     const buses = ['bus01', 'bus02', 'bus03', 'bus04', 'bus05', 'bus06'];
     let html = '';
-    
+
     buses.forEach((busId) => {
         const isActive = busId === activeBusID;
         const activeClass = isActive ? 'active' : '';
@@ -392,7 +392,7 @@ function renderFullFleetList() {
             </div>
         `;
     });
-    
+
     fleetContainer.innerHTML = html;
 }
 
@@ -401,18 +401,18 @@ function renderFullFleetList() {
 function selectBusCard(busId) {
     // First, change the active bus
     changeBus(busId);
-    
+
     // Toggle details panel
     const allPanels = document.querySelectorAll('.bus-details-panel');
     const targetPanel = document.getElementById(`details-${busId}`);
-    
+
     // Close all other panels
     allPanels.forEach(panel => {
         if (panel.id !== `details-${busId}`) {
             panel.style.display = 'none';
         }
     });
-    
+
     // Toggle current panel
     if (targetPanel) {
         if (targetPanel.style.display === 'none') {
@@ -477,19 +477,19 @@ function updateChipUI(id) {
 function changeBus(busId) {
     currentBus = busId;
     activeBusID = busId;
-    
+
     // Clear current map state before switching
     if (currentMarker) currentMarker.remove();
     if (destinationMarker) destinationMarker.remove();
     if (map && map.getLayer("route")) map.removeLayer("route");
     if (map && map.getSource("route")) map.removeSource("route");
-    
+
     // Update text UI
     const busTitle = document.getElementById("m-bus-id");
     if (busTitle) {
         busTitle.innerText = "VEHICLE: " + busId.toUpperCase();
     }
-    
+
     // Trigger immediate sync and map refresh
     syncData(true); // true to fit bounds
 }
@@ -515,18 +515,18 @@ function showResetConfirm(busId) {
     isUserInteracting = true;
     isResetting = true;
     lastUserActionTime = Date.now();
-    
+
     if (confirm(`Reset bus ${formatBusID(busId)}?`)) {
         let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
         // Reset ALL data for this bus
         fleet[busId] = { active: false, from: null, to: null, eta: null, currentCoords: null, destinationCoords: null, routeGeo: null };
         localStorage.setItem("fleet_data", JSON.stringify(fleet));
-        
+
         // Clear local state
         if (liveBusState[busId]) {
             liveBusState[busId] = { active: false };
         }
-        
+
         // If it's the current active bus, clear map
         if (busId === activeBusID) {
             if (currentMarker) currentMarker.remove();
@@ -540,7 +540,7 @@ function showResetConfirm(busId) {
         showToast(`Bus ${formatBusID(busId)} reset`);
         syncData();
     }
-    
+
     setTimeout(() => {
         isResetting = false;
         isUserInteracting = false;
@@ -555,15 +555,15 @@ function syncData(shouldFitBounds = false) {
     if (isResetting) return;
     const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
     if (role === 'driver' && isUserInteracting && (Date.now() - lastUserActionTime) < INTERACTION_COOLDOWN) return;
-    
+
     const fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
-    
+
     // Sync all bus states to liveBusState for UI consistency
     Object.keys(fleet).forEach(busId => {
         if (!liveBusState[busId]) liveBusState[busId] = {};
         liveBusState[busId] = { ...liveBusState[busId], ...fleet[busId] };
     });
-    
+
     // Update active buses count in header
     const activeCount = Object.values(fleet).filter(b => b.active).length;
     const countEl = document.getElementById('active-buses-count');
@@ -571,17 +571,17 @@ function syncData(shouldFitBounds = false) {
 
     // Refresh fleet list UI
     filterBusForUser(role === "admin" ? "all" : activeBusID);
-    
+
     // Update active bus data
     if (!fleet[activeBusID]) return;
     const d = fleet[activeBusID];
-    
+
     // Update Dashboard Data based on role
     if (role === 'driver') {
         const dEtaText = document.getElementById('d-eta-text');
         const dEtaBox = document.getElementById('driver-eta-box');
         const dBusId = document.getElementById('d-bus-id');
-        
+
         if (d && d.active) {
             if (dEtaText) dEtaText.innerText = d.eta || "--";
             if (dEtaBox) dEtaBox.style.display = 'block';
@@ -590,7 +590,7 @@ function syncData(shouldFitBounds = false) {
     } else {
         updateParentPanel(activeBusID);
     }
-    
+
     // Update Map UI if route data exists
     if (d.currentCoords && d.destinationCoords && map) {
         renderSyncRoute(d, shouldFitBounds);
@@ -599,7 +599,7 @@ function syncData(shouldFitBounds = false) {
 
 function renderSyncRoute(d, shouldFitBounds = false) {
     if (!map) return;
-    
+
     // Update Markers
     if (currentMarker) currentMarker.remove();
     currentMarker = new tt.Marker({ color: '#2563eb' })
@@ -649,18 +649,18 @@ function initMap() {
     }
 
     if (map) map.remove();
-    
+
     map = tt.map({
         key: TOMTOM_KEY,
         container: "map",
         center: [72.8777, 19.0760],
         zoom: 12
     });
-    
+
     map.on('load', () => {
         map.resize();
         syncData();
-        
+
         // Start background sync every 5 seconds
         if (!window.syncInterval) {
             window.syncInterval = setInterval(() => {
@@ -668,7 +668,7 @@ function initMap() {
             }, 5000);
         }
     });
-    
+
     window.addEventListener('resize', () => {
         if (map) {
             map.resize();
@@ -688,22 +688,22 @@ function getUserLocation() {
 function publishTrip() {
     isUserInteracting = true;
     lastUserActionTime = Date.now();
-    
+
     let f = JSON.parse(localStorage.getItem("fleet_data")) || {};
     if (!f[activeBusID]) f[activeBusID] = {};
-    
+
     f[activeBusID].active = true;
     localStorage.setItem("fleet_data", JSON.stringify(f));
-    
+
     // Update local state immediately
     if (!liveBusState[activeBusID]) liveBusState[activeBusID] = {};
     liveBusState[activeBusID].active = true;
-    
+
     showToast(`Bus ${formatBusID(activeBusID)} is LIVE!`);
-    
+
     // Refresh all UI components immediately
     syncData();
-    
+
     setTimeout(() => {
         isUserInteracting = false;
     }, 1000);
@@ -830,7 +830,7 @@ function filterBusForUser(busId) {
             card.onclick = () => {
                 const details = document.getElementById(`details-${bus}`);
                 const alreadyOpen = details.style.display === "block";
-                
+
                 if (!alreadyOpen) {
                     document.querySelectorAll('.bus-card-details').forEach(el => el.style.display = 'none');
                     details.style.display = "block";
@@ -857,7 +857,7 @@ let destinationMarker = null;
 function normalizeQuery(query) {
     // Trim and lowercase
     let normalized = query.trim().toLowerCase();
-    
+
     // Common Mumbai station spelling corrections
     const corrections = {
         'bhayander': 'bhayandar',
@@ -887,46 +887,46 @@ function normalizeQuery(query) {
         'thane sttion': 'thane station',
         'thane stn': 'thane station'
     };
-    
+
     // Apply corrections
     for (const [wrong, correct] of Object.entries(corrections)) {
         if (normalized.includes(wrong)) {
             normalized = normalized.replace(new RegExp(wrong, 'g'), correct);
         }
     }
-    
+
     // Directional and Station refinements for accuracy
     const directions = ['east', 'west', 'north', 'south'];
     let foundDirection = directions.find(d => normalized.includes(d));
-    
+
     if (normalized.includes('station') || normalized.includes(' stn')) {
         if (!normalized.includes('railway')) {
             normalized = normalized.replace(/station/g, 'railway station');
         }
     }
-    
+
     // Explicit area priority
     if (normalized.includes('bhayandar') || normalized.includes('mira road')) {
         if (!normalized.includes('mira bhayandar')) {
             normalized += ' Mira Bhayandar';
         }
     }
-    
+
     // Preserve directional context at the end for API
     if (foundDirection && !normalized.toLowerCase().includes(foundDirection + ' station')) {
         // Handled by API prioritization later, but ensure it's in the string
     }
-    
+
     // Capitalize first letter of each word for better API matching
     normalized = normalized.replace(/\b\w/g, char => char.toUpperCase());
-    
+
     // Add Mumbai, Maharashtra, India context if not present
-    if (!normalized.includes('India') && 
+    if (!normalized.includes('India') &&
         !normalized.includes('Mumbai') &&
         !normalized.includes('Maharashtra')) {
         normalized += ', Mumbai, Maharashtra, India';
     }
-    
+
     console.log('Normalized query:', normalized);
     return normalized;
 }
@@ -938,11 +938,11 @@ function normalizeQuery(query) {
 async function searchAndMove(type) {
     console.log('\n========== SEARCH START ==========');
     console.log('Search type:', type);
-    
+
     // Set interaction flag to prevent sync interruptions
     isUserInteracting = true;
     lastUserActionTime = Date.now();
-    
+
     // Validate map instance
     if (!map) {
         console.error('ERROR: Map instance is undefined');
@@ -950,59 +950,59 @@ async function searchAndMove(type) {
         isUserInteracting = false;
         return;
     }
-    
+
     // Get input element
     const inputId = type === 'current' ? 'search-src' : 'search-dest';
     const inputEl = document.getElementById(inputId);
-    
+
     if (!inputEl) {
         console.error('ERROR: Input element not found:', inputId);
         showCustomAlert('Search input not found');
         isUserInteracting = false;
         return;
     }
-    
+
     // Get and validate raw query
     let rawQuery = inputEl.value;
     console.log('Raw user input:', rawQuery);
-    
+
     if (!rawQuery || rawQuery.trim() === '') {
         console.log('WARNING: Empty query');
         showCustomAlert('Please enter a location');
         isUserInteracting = false;
         return;
     }
-    
+
     // Normalize query with auto-correction
     const normalizedQuery = normalizeQuery(rawQuery);
     console.log('Final query sent to API:', normalizedQuery);
-    
+
     try {
         // Build TomTom Fuzzy Search API URL with Mira Bhayandar area bias
         // Lat: 19.2813, Lon: 72.8557 (Mira Bhayandar center)
         const baseUrl = 'https://api.tomtom.com/search/2/search';
         const encodedQuery = encodeURIComponent(normalizedQuery);
         const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=5&idxSet=POI,Geo&countrySet=IN&language=en-US&lat=19.2813&lon=72.8557&radius=20000`;
-        
+
         console.log('Request URL:', url);
         console.log('Sending fetch request...');
-        
+
         // Make API request
         const response = await fetch(url);
-        
+
         console.log('Response status:', response.status);
         console.log('Response OK:', response.ok);
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             console.error('HTTP Error Response:', errorText);
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         // Parse JSON response
         const data = await response.json();
         console.log('Raw API response:', JSON.stringify(data, null, 2));
-        
+
         // Validate results
         if (!data.results || data.results.length === 0) {
             console.log('WARNING: No results found for query');
@@ -1010,13 +1010,13 @@ async function searchAndMove(type) {
             isUserInteracting = false;
             return;
         }
-        
+
         console.log(`Found ${data.results.length} results`);
-        
+
         // Smart result selection
         let bestResult = data.results[0];
         console.log('Default best result:', bestResult.address?.freeformAddress);
-        
+
         // Advanced directional & landmark prioritization
         const queryLower = normalizedQuery.toLowerCase();
         const hasEast = queryLower.includes('east');
@@ -1031,13 +1031,13 @@ async function searchAndMove(type) {
                 const address = (result.address?.freeformAddress || '').toLowerCase();
                 const combined = (poiName + ' ' + address).toLowerCase();
                 const resultTypes = result.type || '';
-                
+
                 // Prioritize station POIs if station is in query
                 if (hasStation && (poiName.includes('station') || address.includes('station')) && resultTypes === 'POI') {
                     bestResult = result;
                     // If it also matches directional preference, we found the perfect match
                     if ((hasEast && combined.includes('east')) || (hasWest && combined.includes('west'))) {
-                        break; 
+                        break;
                     }
                 }
                 // Otherwise prioritize directional match
@@ -1046,21 +1046,21 @@ async function searchAndMove(type) {
                 }
             }
         }
-        
+
         console.log('Selected final result:', bestResult.address?.freeformAddress);
 
         // Parse coordinates
         const lon = bestResult.position.lon;
         const lat = bestResult.position.lat;
-        
+
         // Validate coordinates are valid numbers
         if (isNaN(lat) || isNaN(lon)) {
             throw new Error('Invalid coordinates received from API');
         }
-        
+
         const coords = [lon, lat];
         const displayName = bestResult.address?.freeformAddress || normalizedQuery;
-        
+
         // Ensure ALL old markers (stale state) are cleared
         if (type === 'current') {
             if (currentMarker) currentMarker.remove();
@@ -1069,7 +1069,7 @@ async function searchAndMove(type) {
                 .setLngLat(coords)
                 .addTo(map)
                 .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Current Location</strong><br>${displayName}`));
-            
+
         } else {
             if (destinationMarker) destinationMarker.remove();
             destinationCoords = coords;
@@ -1078,11 +1078,11 @@ async function searchAndMove(type) {
                 .addTo(map)
                 .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Destination</strong><br>${displayName}`));
         }
-        
+
         // Persist to LocalStorage for Sync
         let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
         if (!fleet[currentBus]) fleet[currentBus] = {};
-        
+
         if (type === 'current') {
             fleet[currentBus].from = displayName;
             fleet[currentBus].currentCoords = coords;
@@ -1094,7 +1094,7 @@ async function searchAndMove(type) {
 
         // Fly to result
         map.flyTo({ center: coords, zoom: 15, duration: 1500 });
-        
+
         // If both points exist, draw route
         if (currentCoords && destinationCoords) {
             setTimeout(() => {
@@ -1102,7 +1102,7 @@ async function searchAndMove(type) {
             }, 500);
         }
 
-    } catch(error) {
+    } catch (error) {
         console.error('\n========== SEARCH ERROR ==========');
         console.error('Error:', error.message);
         showCustomAlert(`Search failed: ${error.message}`);
@@ -1120,14 +1120,14 @@ async function searchAndMove(type) {
 
 async function drawRoute() {
     console.log('\n========== ROUTE DRAW START ==========');
-    
+
     // Validate map instance
     if (!map) {
         console.error('ERROR: Map instance is undefined');
         showCustomAlert('Map not loaded. Please refresh the page.');
         return;
     }
-    
+
     // Validate coordinates
     if (!currentCoords || !destinationCoords) {
         console.log('WARNING: Missing coordinates');
@@ -1136,17 +1136,17 @@ async function drawRoute() {
         console.log('Waiting for both locations...');
         return;
     }
-    
+
     console.log('Current coords:', currentCoords);
     console.log('Destination coords:', destinationCoords);
-    
+
     // Validate coordinate format [lon, lat]
     if (!Array.isArray(currentCoords) || currentCoords.length !== 2) {
         console.error('ERROR: Invalid currentCoords format', currentCoords);
         showCustomAlert('Invalid current location data');
         return;
     }
-    
+
     if (!Array.isArray(destinationCoords) || destinationCoords.length !== 2) {
         console.error('ERROR: Invalid destinationCoords format', destinationCoords);
         showCustomAlert('Invalid destination location data');
@@ -1159,28 +1159,28 @@ async function drawRoute() {
         const currentLon = currentCoords[0];
         const destLat = destinationCoords[1];
         const destLon = destinationCoords[0];
-        
+
         console.log('Route coordinates:', {
             from: { lat: currentLat, lon: currentLon },
             to: { lat: destLat, lon: destLon }
         });
-        
+
         const routeUrl = `https://api.tomtom.com/routing/1/calculateRoute/${currentLat},${currentLon}:${destLat},${destLon}/json?key=${TOMTOM_KEY}&travelMode=car&traffic=true`;
-        
+
         console.log('Route request URL:', routeUrl);
         console.log('Sending route request...');
-        
+
         const response = await fetch(routeUrl);
-        
+
         console.log('Route response status:', response.status);
         console.log('Route response OK:', response.ok);
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             console.error('HTTP Error Response:', errorText);
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         console.log('Raw route API response:', JSON.stringify(data, null, 2));
 
@@ -1192,16 +1192,16 @@ async function drawRoute() {
 
         const route = data.routes[0];
         const summary = route.summary;
-        
+
         console.log('Route summary:', {
             travelTime: summary.travelTimeInSeconds + 's',
             distance: summary.lengthInMeters + 'm',
             eta: Math.ceil(summary.travelTimeInSeconds / 60) + 'mins'
         });
-        
+
         // Extract route coordinates
         const routeCoords = route.legs[0].points.map(p => [p.longitude, p.latitude]);
-        
+
         console.log('Route points count:', routeCoords.length);
         console.log('First point:', routeCoords[0]);
         console.log('Last point:', routeCoords[routeCoords.length - 1]);
@@ -1214,12 +1214,12 @@ async function drawRoute() {
                 coordinates: routeCoords
             }
         };
-        
+
         console.log('GeoJSON created successfully');
 
         // Remove existing route layer and source (clear stale state)
         console.log('Removing old route layer/source if exists...');
-        
+
         if (map.getLayer("route")) {
             console.log('Removing old route layer');
             map.removeLayer("route");
@@ -1267,10 +1267,10 @@ async function drawRoute() {
         routeCoords.forEach(coord => {
             bounds.extend(coord);
         });
-        
+
         console.log('Route bounds:', bounds);
         console.log('Fitting map to bounds...');
-        
+
         map.fitBounds(bounds, {
             padding: {
                 top: 100,
@@ -1285,12 +1285,12 @@ async function drawRoute() {
         // Update live bus state and PERSIST for sync
         let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
         if (!fleet[currentBus]) fleet[currentBus] = {};
-        
+
         fleet[currentBus].active = true;
         fleet[currentBus].routeGeo = geojson;
         fleet[currentBus].eta = Math.ceil(summary.travelTimeInSeconds / 60);
         fleet[currentBus].distance = (summary.lengthInMeters / 1000).toFixed(1);
-        
+
         localStorage.setItem("fleet_data", JSON.stringify(fleet));
 
         // Update UI panels
@@ -1299,7 +1299,7 @@ async function drawRoute() {
         filterBusForUser(activeRole === "admin" ? "all" : currentBus);
 
         console.log('========== ROUTE DRAW COMPLETE ==========\n');
-    } catch(err) {
+    } catch (err) {
         console.error('ROUTE DRAW ERROR:', err.message);
         showCustomAlert(`Sync failed: ${err.message}`);
     }
@@ -1315,21 +1315,21 @@ function clearRouteAndMarkers() {
         currentMarker.remove();
         currentMarker = null;
     }
-    
+
     if (destinationMarker) {
         destinationMarker.remove();
         destinationMarker = null;
     }
-    
+
     // Clear route
     if (map.getLayer("route")) {
         map.removeLayer("route");
     }
-    
+
     if (map.getSource("route")) {
         map.removeSource("route");
     }
-    
+
     // Reset coordinates
     currentCoords = null;
     destinationCoords = null;
@@ -1376,7 +1376,7 @@ function closeCustomAlert() {
 
 function resetBus(busId) {
     const role = sessionStorage.getItem("active_role") || currentRole;
-    
+
     if (role === "parent") {
         showCustomAlert("Parents do not have permission to reset buses.");
         return;
@@ -1394,7 +1394,7 @@ function resetBus(busId) {
         eta: null,
         routeGeo: null
     };
-    
+
     // Update LocalStorage
     let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
     fleet[busId] = { active: false };
@@ -1415,27 +1415,27 @@ function resetBus(busId) {
 // Initialize on load
 window.onload = () => {
     initializeFleetData();
-    
+
     const savedRole = localStorage.getItem("saved_user_role");
     const isLoggedInSession = sessionStorage.getItem("is_logged_in");
-    
+
     if (isLoggedInSession === "true" || savedRole) {
         launchDashboard();
     }
-    
+
     // Add Enter key support for search inputs
     const searchSrc = document.getElementById("search-src");
     if (searchSrc) {
-        searchSrc.addEventListener("keydown", function(e) {
+        searchSrc.addEventListener("keydown", function (e) {
             if (e.key === "Enter") {
                 searchAndMove("current");
             }
         });
     }
-    
+
     const searchDest = document.getElementById("search-dest");
     if (searchDest) {
-        searchDest.addEventListener("keydown", function(e) {
+        searchDest.addEventListener("keydown", function (e) {
             if (e.key === "Enter") {
                 searchAndMove("destination");
             }
