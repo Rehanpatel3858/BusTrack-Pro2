@@ -881,9 +881,13 @@ function normalizeQuery(query) {
     normalized = normalized.replace(/\bstn\b/g, 'station');
     normalized = normalized.replace(/\brly\b/g, 'railway');
 
-    // Detect if a specific city is already mentioned
-    const knownCities = ['mumbai', 'pune', 'thane', 'navi mumbai', 'mira bhayandar', 'nashik', 'nagpur', 'aurangabad', 'solapur', 'kolhapur'];
-    const targetCity = knownCities.find(city => normalized.includes(city));
+    // Detect if a specific city/state is already mentioned
+    const knownLocations = [
+        'mumbai', 'pune', 'thane', 'navi mumbai', 'mira bhayandar', 'nashik', 'nagpur', 
+        'goa', 'delhi', 'bangalore', 'bengaluru', 'hyderabad', 'chennai', 'kolkata', 
+        'gujarat', 'rajasthan', 'kerala', 'karnataka', 'tamil nadu'
+    ];
+    const foundLocation = knownLocations.find(loc => normalized.includes(loc));
 
     // Apply strict station mapping if found
     Object.keys(stationMappings).forEach(key => {
@@ -893,27 +897,28 @@ function normalizeQuery(query) {
     });
 
     // Build Context
-    let context = "Maharashtra, India";
+    let context = "India";
     
-    if (!targetCity) {
-        // Only add default city context if no known city is mentioned
+    if (!foundLocation) {
+        // Default to Mumbai/Maharashtra ONLY if no major location is found
         if (normalized.includes('mira') || normalized.includes('bhayandar')) {
-            context = "Mira Bhayandar, " + context;
+            context = "Mira Bhayandar, Maharashtra, " + context;
         } else if (normalized.includes('thane')) {
-            context = "Thane, " + context;
+            context = "Thane, Maharashtra, " + context;
         } else {
-            context = "Mumbai, " + context;
+            context = "Mumbai, Maharashtra, " + context;
         }
-    }
-
-    if (!normalized.includes('India')) {
-        normalized = `${normalized}, ${context}`;
+    } else {
+        // If location is found, ensure "India" is there for global precision
+        if (!normalized.includes('india')) {
+            normalized += ", India";
+        }
     }
 
     // Capitalize for professional display
     normalized = normalized.replace(/\b\w/g, char => char.toUpperCase());
 
-    console.log('Normalized Search Query:', normalized);
+    console.log('Final Search Query:', normalized);
     return normalized;
 }
 
@@ -955,15 +960,21 @@ async function searchAndMove(type) {
         const baseUrl = 'https://api.tomtom.com/search/2/search';
         const encodedQuery = encodeURIComponent(normalizedQuery);
         
-        // Dynamic Biasing: Use center of Maharashtra if "Pune" or other non-MMR city is detected
-        let lat = 19.2813; // Default Mira Bhayandar
+        // Dynamic Biasing
+        let lat = 19.2813; 
         let lon = 72.8557;
         let radius = 50000;
 
-        if (queryLower.includes('pune')) {
+        // Detection for non-MMR searches (Disable tight radius for global cities/states)
+        const globalLocations = ['goa', 'delhi', 'bangalore', 'bengaluru', 'hyderabad', 'chennai', 'kolkata', 'kerala'];
+        const isGlobal = globalLocations.some(loc => queryLower.includes(loc));
+
+        if (isGlobal) {
+            radius = 500000; // 500km radius for state-level or major city searches
+        } else if (queryLower.includes('pune')) {
             lat = 18.5204;
             lon = 73.8567;
-            radius = 20000;
+            radius = 30000;
         }
 
         const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=20&idxSet=POI,Geo,Addr,PAD&countrySet=IN&lat=${lat}&lon=${lon}&radius=${radius}`;
@@ -979,7 +990,7 @@ async function searchAndMove(type) {
             return;
         }
 
-        // Smart selection based on query relevance, not just first result
+        // Smart Selection Logic
         let bestResult = data.results[0];
         let maxScore = -1;
 
@@ -999,8 +1010,7 @@ async function searchAndMove(type) {
 
             // 2. City Validation (Massive boost for correct city)
             if (queryLower.includes('pune') && (addr.includes('pune') || municipality.includes('pune'))) score += 100;
-            if (queryLower.includes('mumbai') && (addr.includes('mumbai') || municipality.includes('mumbai'))) score += 100;
-            if (queryLower.includes('thane') && (addr.includes('thane') || municipality.includes('thane'))) score += 100;
+            if (queryLower.includes('goa') && (addr.includes('goa') || municipality.includes('goa'))) score += 100;
 
             // 3. Station Type Match
             if (result.type === 'POI') {
@@ -1012,10 +1022,6 @@ async function searchAndMove(type) {
             if (isEast && combined.includes('east')) score += 60;
             if (isWest && combined.includes('west')) score += 60;
 
-            // 5. Exact Station Side Match
-            if (isStationQuery && isEast && combined.includes('railway station') && combined.includes('east')) score += 150;
-            if (isStationQuery && isWest && combined.includes('railway station') && combined.includes('west')) score += 150;
-
             if (score > maxScore) {
                 maxScore = score;
                 bestResult = result;
@@ -1025,14 +1031,13 @@ async function searchAndMove(type) {
         const coords = [bestResult.position.lon, bestResult.position.lat];
         const displayName = bestResult.address?.freeformAddress || normalizedQuery;
 
-        // Clear markers and update
         if (type === 'current') {
             if (currentMarker) currentMarker.remove();
             currentCoords = coords;
             currentMarker = new tt.Marker({ color: '#2563eb' })
                 .setLngLat(coords)
                 .addTo(map)
-                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Start Point:</strong><br>${displayName}`));
+                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Start:</strong><br>${displayName}`));
         } else {
             if (destinationMarker) destinationMarker.remove();
             destinationCoords = coords;
@@ -1055,19 +1060,23 @@ async function searchAndMove(type) {
         }
         localStorage.setItem("fleet_data", JSON.stringify(fleet));
 
-        // Center map
+        // Center map and Trigger Routing
         if (currentCoords && destinationCoords) {
             const bounds = new tt.LngLatBounds();
             bounds.extend(currentCoords);
             bounds.extend(destinationCoords);
             map.fitBounds(bounds, { padding: 100, duration: 1500 });
+            
+            // AUTOMATIC ROUTE TRIGGER
+            console.log("Both points detected. Triggering drawRoute()...");
+            setTimeout(() => drawRoute(), 1600); 
         } else {
             map.flyTo({ center: coords, zoom: 16, duration: 1500 });
         }
 
     } catch (error) {
-        console.error('Search Accuracy Error:', error);
-        showCustomAlert("Location not found correctly. Please try a more specific address.");
+        console.error('Search Error:', error);
+        showCustomAlert("Location not found correctly.");
     } finally {
         isUserInteracting = false;
     }
@@ -1078,94 +1087,51 @@ async function searchAndMove(type) {
 // ===============================
 
 async function drawRoute() {
-    console.log('\n========== ROUTE DRAW START ==========');
+    console.log('\n========== ROUTE GENERATION START ==========');
 
-    // Validate map instance
     if (!map) {
-        console.error('ERROR: Map instance is undefined');
-        showCustomAlert('Map not loaded. Please refresh the page.');
+        console.error('Map not ready');
         return;
     }
 
-    // Validate coordinates
+    // Strict Coordinate Validation
     if (!currentCoords || !destinationCoords) {
-        console.log('WARNING: Missing coordinates');
-        console.log('Current coords:', currentCoords);
-        console.log('Destination coords:', destinationCoords);
-        console.log('Waiting for both locations...');
+        console.warn('Missing coordinates for routing');
         return;
     }
 
-    console.log('Current coords:', currentCoords);
-    console.log('Destination coords:', destinationCoords);
-
-    // Validate coordinate format [lon, lat]
-    if (!Array.isArray(currentCoords) || currentCoords.length !== 2) {
-        console.error('ERROR: Invalid currentCoords format', currentCoords);
-        showCustomAlert('Invalid current location data');
-        return;
-    }
-
-    if (!Array.isArray(destinationCoords) || destinationCoords.length !== 2) {
-        console.error('ERROR: Invalid destinationCoords format', destinationCoords);
-        showCustomAlert('Invalid destination location data');
+    if (currentCoords[0] === destinationCoords[0] && currentCoords[1] === destinationCoords[1]) {
+        showCustomAlert("Start and Destination cannot be the same.");
         return;
     }
 
     try {
-        // TomTom Routing API - format: lat,lon:lat,lon
-        const currentLat = currentCoords[1];
-        const currentLon = currentCoords[0];
-        const destLat = destinationCoords[1];
-        const destLon = destinationCoords[0];
+        const start = `${currentCoords[1]},${currentCoords[0]}`;
+        const end = `${destinationCoords[1]},${destinationCoords[0]}`;
+        
+        console.log(`Calculating route: ${start} -> ${end}`);
 
-        console.log('Route coordinates:', {
-            from: { lat: currentLat, lon: currentLon },
-            to: { lat: destLat, lon: destLon }
-        });
-
-        const routeUrl = `https://api.tomtom.com/routing/1/calculateRoute/${currentLat},${currentLon}:${destLat},${destLon}/json?key=${TOMTOM_KEY}&travelMode=car&traffic=true`;
-
-        console.log('Route request URL:', routeUrl);
-        console.log('Sending route request...');
+        const routeUrl = `https://api.tomtom.com/routing/1/calculateRoute/${start}:${end}/json?key=${TOMTOM_KEY}&travelMode=car&traffic=true&routeType=fastest`;
 
         const response = await fetch(routeUrl);
-
-        console.log('Route response status:', response.status);
-        console.log('Route response OK:', response.ok);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('HTTP Error Response:', errorText);
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`Routing API Error: ${response.status}`);
 
         const data = await response.json();
-        console.log('Raw route API response:', JSON.stringify(data, null, 2));
 
         if (!data.routes || data.routes.length === 0) {
-            console.log('WARNING: No routes found');
-            showCustomAlert('Route not found. Please select different locations.');
+            showCustomAlert("No route found between these points.");
             return;
         }
 
         const route = data.routes[0];
         const summary = route.summary;
-
-        console.log('Route summary:', {
-            travelTime: summary.travelTimeInSeconds + 's',
-            distance: summary.lengthInMeters + 'm',
-            eta: Math.ceil(summary.travelTimeInSeconds / 60) + 'mins'
-        });
-
-        // Extract route coordinates
         const routeCoords = route.legs[0].points.map(p => [p.longitude, p.latitude]);
 
-        console.log('Route points count:', routeCoords.length);
-        console.log('First point:', routeCoords[0]);
-        console.log('Last point:', routeCoords[routeCoords.length - 1]);
+        console.log('Route Success:', {
+            distance: (summary.lengthInMeters / 1000).toFixed(2) + ' km',
+            time: Math.ceil(summary.travelTimeInSeconds / 60) + ' mins'
+        });
 
-        // Create GeoJSON
         const geojson = {
             type: "Feature",
             geometry: {
@@ -1174,74 +1140,31 @@ async function drawRoute() {
             }
         };
 
-        console.log('GeoJSON created successfully');
+        // Clear existing route layers/sources
+        if (map.getLayer("route")) map.removeLayer("route");
+        if (map.getSource("route")) map.removeSource("route");
 
-        // Remove existing route layer and source (clear stale state)
-        console.log('Removing old route layer/source if exists...');
-
-        if (map.getLayer("route")) {
-            console.log('Removing old route layer');
-            map.removeLayer("route");
-        } else {
-            console.log('No existing route layer found');
-        }
-
-        if (map.getSource("route")) {
-            console.log('Removing old route source');
-            map.removeSource("route");
-        } else {
-            console.log('No existing route source found');
-        }
-
-        // Add route source
-        console.log('Adding new route source...');
-        map.addSource("route", {
-            type: "geojson",
-            data: geojson
-        });
-        console.log('Route source added');
-
-        // Add route layer with gradient effect
-        console.log('Adding new route layer...');
+        // Add new route
+        map.addSource("route", { type: "geojson", data: geojson });
         map.addLayer({
             id: "route",
             type: "line",
             source: "route",
-            layout: {
-                "line-join": "round",
-                "line-cap": "round"
-            },
+            layout: { "line-join": "round", "line-cap": "round" },
             paint: {
                 "line-color": "#2563eb",
-                "line-width": 5,
-                "line-opacity": 0.85,
+                "line-width": 6,
+                "line-opacity": 0.8,
                 "line-blur": 0.5
             }
         });
-        console.log('Route layer added');
 
-        // Fit map to route bounds with padding
-        console.log('Calculating route bounds...');
+        // Auto-focus map on route
         const bounds = new tt.LngLatBounds();
-        routeCoords.forEach(coord => {
-            bounds.extend(coord);
-        });
+        routeCoords.forEach(c => bounds.extend(c));
+        map.fitBounds(bounds, { padding: 80, duration: 1500 });
 
-        console.log('Route bounds:', bounds);
-        console.log('Fitting map to bounds...');
-
-        map.fitBounds(bounds, {
-            padding: {
-                top: 100,
-                bottom: 100,
-                left: 100,
-                right: 100
-            },
-            duration: 1500,
-            maxZoom: 14
-        });
-
-        // Update live bus state and PERSIST for sync
+        // Update Persistence & Global State
         let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
         if (!fleet[currentBus]) fleet[currentBus] = {};
 
@@ -1252,15 +1175,16 @@ async function drawRoute() {
 
         localStorage.setItem("fleet_data", JSON.stringify(fleet));
 
-        // Update UI panels
+        // Sync UI
         updateParentPanel(currentBus);
         const activeRole = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
         filterBusForUser(activeRole === "admin" ? "all" : currentBus);
 
-        console.log('========== ROUTE DRAW COMPLETE ==========\n');
+        console.log('========== ROUTE GENERATION COMPLETE ==========');
+
     } catch (err) {
-        console.error('ROUTE DRAW ERROR:', err.message);
-        showCustomAlert(`Sync failed: ${err.message}`);
+        console.error('Routing Failed:', err);
+        showCustomAlert("Route calculation failed. Please check locations.");
     }
 }
 
