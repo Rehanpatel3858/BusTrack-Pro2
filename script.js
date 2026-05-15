@@ -393,16 +393,20 @@ function selectBusCard(busId) {
 }
 
 // Get driver name for bus
-function getDriverName(busId) {
-    const drivers = {
-        'bus01': 'John Smith',
-        'bus02': 'Sarah Johnson',
-        'bus03': 'Mike Davis',
-        'bus04': 'Emily Wilson',
-        'bus05': 'David Brown',
-        'bus06': 'Lisa Anderson'
+function getDriverInfo(busId) {
+    const info = {
+        'bus01': { name: 'Rajesh Patil', contact: '+91 98765 43210', students: 28 },
+        'bus02': { name: 'Suresh Kumar', contact: '+91 98765 43211', students: 32 },
+        'bus03': { name: 'Anita Desai', contact: '+91 98765 43212', students: 25 },
+        'bus04': { name: 'Vikram Singh', contact: '+91 98765 43213', students: 30 },
+        'bus05': { name: 'Meena Iyer', contact: '+91 98765 43214', students: 27 },
+        'bus06': { name: 'Rohan Mehta', contact: '+91 98765 43215', students: 29 }
     };
-    return drivers[busId] || 'Not Assigned';
+    return info[busId] || { name: 'Not Assigned', contact: '--', students: 0 };
+}
+
+function getDriverName(busId) {
+    return getDriverInfo(busId).name;
 }
 
 // --- 2. TOMTOM SEARCH API & ROUTING ---
@@ -454,7 +458,7 @@ function changeBus(busId) {
     }
     
     // Trigger immediate sync and map refresh
-    syncData();
+    syncData(true); // true to fit bounds
 }
 
 function updateParentPanel(busId) {
@@ -518,7 +522,7 @@ function closeConfirmModal() {}
 function executeReset() {}
 
 // Sync data
-function syncData() {
+function syncData(shouldFitBounds = false) {
     if (isResetting) return;
     const role = sessionStorage.getItem("active_role") || localStorage.getItem("saved_user_role");
     if (role === 'driver' && isUserInteracting && (Date.now() - lastUserActionTime) < INTERACTION_COOLDOWN) return;
@@ -560,11 +564,11 @@ function syncData() {
     
     // Update Map UI if route data exists
     if (d.currentCoords && d.destinationCoords && map) {
-        renderSyncRoute(d);
+        renderSyncRoute(d, shouldFitBounds);
     }
 }
 
-function renderSyncRoute(d) {
+function renderSyncRoute(d, shouldFitBounds = false) {
     if (!map) return;
     
     // Update Markers
@@ -598,6 +602,12 @@ function renderSyncRoute(d) {
                 "line-blur": 0.5
             }
         });
+
+        if (shouldFitBounds) {
+            const bounds = new tt.LngLatBounds();
+            d.routeGeo.geometry.coordinates.forEach(coord => bounds.extend(coord));
+            map.fitBounds(bounds, { padding: 100, duration: 1000 });
+        }
     }
 }
 
@@ -686,7 +696,15 @@ function mapZoomOut() {
 
 function mapFitAll() {
     if (map) {
-        map.setView([72.8557, 19.2813], 14);
+        const fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
+        const d = fleet[activeBusID];
+        if (d && d.routeGeo) {
+            const bounds = new tt.LngLatBounds();
+            d.routeGeo.geometry.coordinates.forEach(coord => bounds.extend(coord));
+            map.fitBounds(bounds, { padding: 100, duration: 1000 });
+        } else {
+            map.setView([72.8557, 19.2813], 14);
+        }
     }
 }
 
@@ -715,6 +733,11 @@ function filterBusForUser(busId) {
 
     fleetContainer.innerHTML = "";
 
+    // Parent Portal: remove duplicated card, keep lower only
+    if (role === "parent") {
+        return; 
+    }
+
     buses.forEach(bus => {
         if (busId !== "all" && bus !== busId) {
             return;
@@ -723,71 +746,79 @@ function filterBusForUser(busId) {
         const data = liveBusState[bus] || {};
         const status = data.active ? "LIVE" : "OFFLINE";
         const statusClass = data.active ? "live" : "offline";
-        const display = bus.replace("bus", "B-");
+        const display = bus.replace("bus", "B-").toUpperCase();
+        const dInfo = getDriverInfo(bus);
 
         const card = document.createElement("div");
         card.className = "admin-bus-card";
+        if (bus === activeBusID) card.classList.add("active");
 
-        card.innerHTML = `
-            <div class="bus-card-header">
-                <div class="bus-id-badge">
-                    ${display}
+        if (role === "driver") {
+            // Driver Portal Cleanup: Bus ID, status, and Reset button only
+            card.innerHTML = `
+                <div class="bus-card-header">
+                    <div class="bus-id-badge">${display}</div>
+                    <div class="status-badge ${statusClass}">${status}</div>
                 </div>
-                <div class="status-badge ${statusClass}">
-                    ${status}
+                <div class="bus-card-details">
+                    <button class="reset-bus-btn" onclick="event.stopPropagation(); resetBus('${bus}')">
+                        Reset Bus
+                    </button>
                 </div>
-            </div>
-
-            <div class="bus-card-details">
-                <div class="detail-row">
-                    <span class="detail-label">From</span>
-                    <span class="detail-value text-truncate">${data.from || "--"}</span>
+            `;
+        } else {
+            // Admin Portal: Details on click
+            const isSelected = bus === activeBusID;
+            card.innerHTML = `
+                <div class="bus-card-header">
+                    <div class="bus-id-badge">${display}</div>
+                    <div class="status-badge ${statusClass}">${status}</div>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">To</span>
-                    <span class="detail-value text-truncate">${data.to || "--"}</span>
+                <div id="details-${bus}" class="bus-card-details" style="display: ${isSelected ? 'block' : 'none'};">
+                    <div class="detail-row">
+                        <span class="detail-label">From</span>
+                        <span class="detail-value text-truncate">${data.from || "--"}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">To</span>
+                        <span class="detail-value text-truncate">${data.to || "--"}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">ETA</span>
+                        <span class="detail-value">${data.eta ? data.eta + " mins" : "--"}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Driver</span>
+                        <span class="detail-value">${dInfo.name}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Contact</span>
+                        <span class="detail-value">${dInfo.contact}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Students</span>
+                        <span class="detail-value">${dInfo.students}</span>
+                    </div>
+                    <button class="reset-bus-btn" onclick="event.stopPropagation(); resetBus('${bus}')">
+                        Reset Bus
+                    </button>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">ETA</span>
-                    <span class="detail-value">${data.eta ? data.eta + " mins" : "--"}</span>
-                </div>
+            `;
 
-                ${role !== "parent" ? `
-                <button class="reset-bus-btn" onclick="event.stopPropagation(); resetBus('${bus}')">
-                    Reset Bus
-                </button>
-                ` : ""}
-            </div>
-        `;
-
-        card.onclick = () => {
-            if (!data.routeGeo) return;
-
-            currentBus = bus;
-
-            if (map.getLayer("route")) {
-                map.removeLayer("route");
-            }
-
-            if (map.getSource("route")) {
-                map.removeSource("route");
-            }
-
-            map.addLayer({
-                id: "route",
-                type: "line",
-                source: {
-                    type: "geojson",
-                    data: data.routeGeo
-                },
-                paint: {
-                    "line-color": "#2563eb",
-                    "line-width": 7
+            card.onclick = () => {
+                const details = document.getElementById(`details-${bus}`);
+                const alreadyOpen = details.style.display === "block";
+                
+                // Hide others if opening
+                if (!alreadyOpen) {
+                    document.querySelectorAll('.bus-card-details').forEach(el => el.style.display = 'none');
+                    details.style.display = "block";
+                    changeBus(bus);
+                } else {
+                    details.style.display = "none";
                 }
-            });
-
-            updateParentPanel(bus);
-        };
+            };
+        }
 
         fleetContainer.appendChild(card);
     });
