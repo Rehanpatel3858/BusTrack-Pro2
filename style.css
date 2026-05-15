@@ -1530,64 +1530,75 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* Route Info */
+/* Route Info Card */
 .route-info {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 25px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius-md);
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .route-point {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
+  min-width: 0; /* Prevents overflow in flex container */
 }
 
 .point-marker {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   flex-shrink: 0;
+  margin-top: 4px; /* Align with first line of text */
 }
 
 .point-marker.blue {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
 }
 
 .point-marker.red {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
 }
 
 .point-details {
   flex: 1;
+  min-width: 0; /* Crucial for text wrapping inside flex */
 }
 
 .point-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
   margin-bottom: 4px;
 }
 
 .point-value {
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  display: block;
 }
 
 .route-line {
-  width: 2px;
-  height: 40px;
-  background: linear-gradient(180deg, #3b82f6 0%, #ef4444 100%);
-  opacity: 0.5;
+  width: 1px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
 }
 
 /* ETA Section */
