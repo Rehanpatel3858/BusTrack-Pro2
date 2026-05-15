@@ -184,6 +184,22 @@ function selectRole(role) {
     document.getElementById("auth-form-v3").style.display = "block";
 }
 
+/**
+ * Toggle Password Visibility
+ */
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('password-toggle');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.textContent = '🔒'; // Icon for visible
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.textContent = '👁️'; // Icon for hidden
+    }
+}
+
 function processLogin() {
     const username = document.getElementById("username").value.trim().toLowerCase();
     const password = document.getElementById("password").value.trim();
@@ -1324,6 +1340,7 @@ function clearRouteAndMarkers() {
 // ============================================
 window.selectRole = selectRole;
 window.processLogin = processLogin;
+window.togglePasswordVisibility = togglePasswordVisibility;
 window.resetLogin = resetLogin;
 window.logout = logout;
 window.changeRole = changeRole;

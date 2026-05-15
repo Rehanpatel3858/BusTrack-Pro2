@@ -56,7 +56,10 @@
 
             <div id="auth-form-v3" style="display:none;">
                 <input type="text" id="username" class="modern-input-v3" placeholder="Enter ID" onkeyup="if(event.key==='Enter') processLogin()">
-                <input type="password" id="password" class="modern-input-v3" placeholder="Password" onkeyup="if(event.key==='Enter') processLogin()">
+                <div class="password-container-v3">
+                    <input type="password" id="password" class="modern-input-v3" placeholder="Password" onkeyup="if(event.key==='Enter') processLogin()">
+                    <span id="password-toggle" class="password-toggle-v3" onclick="togglePasswordVisibility()">👁️</span>
+                </div>
                 <button class="btn-primary-v3" onclick="processLogin()">Secure Log In</button>
                 <button class="btn-back-link" onclick="resetLogin()">Change Role</button>
             </div>

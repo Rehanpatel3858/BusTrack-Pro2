@@ -261,6 +261,31 @@ body {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
 }
 
+/* Password Toggle Styling */
+.password-container-v3 {
+    position: relative;
+    width: 100%;
+}
+
+.password-toggle-v3 {
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(calc(-50% - 8px)); /* Offset for input margin-bottom */
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    padding: 5px;
+    transition: var(--transition);
+    user-select: none;
+    z-index: 5;
+}
+
+.password-toggle-v3:hover {
+    color: #3b82f6;
+    transform: translateY(calc(-50% - 8px)) scale(1.1);
+}
+
 /* Primary Button - Premium Blue */
 .btn-primary-v3 { 
     width: 100%;
