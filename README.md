@@ -1,6 +1,8 @@
 # 🚌 BusTrack Pro – Smart School Bus Tracking System
 
-BusTrack Pro is a modern real-time school bus tracking and fleet management system designed for Admins, Drivers, and Parents/Students.  
+BusTrack Pro is a modern real-time school bus tracking and fleet management system designed for Admins, Drivers, and Parents/Students.
+
+A real-time fleet monitoring and school bus tracking platform with dedicated Admin, Driver, and Parent dashboards.
 
 This project provides:
 - 📍 Live Bus Tracking
@@ -16,14 +18,14 @@ This project provides:
 
 # 🚀 Live Demo
 
-🔗 Vercel Deployment:  
-Add your Vercel link here
+🌐 [Open BusTrack Pro](https://bus-track-pro2.vercel.app/)
 
 ---
 
 # 👥 Demo Login Credentials
 
 ## 👨‍💼 Admin Login
+
 | Username | Password |
 |----------|----------|
 | admin | Admin@BusTrack2026 |
@@ -31,6 +33,7 @@ Add your Vercel link here
 ---
 
 ## 🚍 Driver Logins
+
 | Username | Password |
 |----------|----------|
 | driver01 | Driver@BusTrack2026 |
@@ -43,6 +46,7 @@ Add your Vercel link here
 ---
 
 ## 👨‍👩‍👧 Parent / Student Logins
+
 | Username | Password |
 |----------|----------|
 | student01 | Parent@BusTrack2026 |
@@ -56,26 +60,29 @@ Add your Vercel link here
 
 # ✨ Features
 
-## Admin Portal
+## 👨‍💼 Admin Portal
 - Monitor all buses
 - View live routes
-- Check ETA and status
+- Check ETA and bus status
 - Access driver and student details
-- Manage fleet operations
+- Fleet management dashboard
+- Live tracking overview
 
-## Driver Portal
+## 👨‍✈️ Driver Portal
 - Publish live tracking
 - Generate live routes
 - Update current and destination locations
 - View ETA calculations
 - Reset trip data
+- Mobile-friendly driver dashboard
 
-## Parent Portal
+## 👨‍👩‍👧 Parent Portal
 - View assigned bus only
-- Real-time tracking
+- Real-time bus tracking
 - Live ETA updates
 - Route visualization
-- Mobile-friendly UI
+- Responsive mobile UI
+- Student-specific tracking system
 
 ---
 
@@ -83,10 +90,11 @@ Add your Vercel link here
 
 - HTML5
 - CSS3
-- JavaScript
+- JavaScript (ES6)
 - TomTom Maps API
 - LocalStorage
 - Responsive UI Design
+- Glassmorphism UI Effects
 
 ---
 
@@ -100,22 +108,16 @@ The application is optimized for:
 
 ---
 
-# 🔐 Security Note
+# 📁 Project Structure
 
-This project uses demo credentials only.  
-No real user data is stored.
-
----
-
-# 📌 Project Status
-
-✅ Active Development  
-✅ Responsive UI  
-✅ Real-Time Route Rendering  
-✅ Multi-Role Authentication  
-✅ Fleet Tracking System
-
----
+```bash
+BusTrackPro/
+│── index.html
+│── script.js
+│── style.css
+│── README.md
+│── assets/
+│── images/
 
 # 👨‍💻 Developed By
 
