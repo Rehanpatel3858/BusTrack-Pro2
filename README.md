@@ -107,18 +107,6 @@ The application is optimized for:
 - Mobile Devices 📲
 
 ---
-
-# 📁 Project Structure
-
-```bash
-BusTrackPro/
-│── index.html
-│── script.js
-│── style.css
-│── README.md
-│── assets/
-│── images/
-
 # 👨‍💻 Developed By
 
 Rehan Patel
@@ -134,3 +122,16 @@ Rehan Patel
 - AI-based ETA Prediction
 - Attendance System
 - Bus Camera Monitoring
+
+
+# 📁 Project Structure
+
+```bash
+BusTrackPro/
+│── index.html
+│── script.js
+│── style.css
+│── README.md
+│── assets/
+│── images/
+
