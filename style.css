@@ -841,8 +841,8 @@ body {
 /* Sidebar */
 .pro-sidebar {
     width: 380px;
-    min-width: 350px;
-    max-width: 500px;
+    min-width: 300px;
+    max-width: 600px;
     background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     border-right: 1px solid rgba(255,255,255,0.1);
     padding: 24px;
@@ -850,20 +850,28 @@ body {
     overflow-x: hidden;
     box-shadow: 4px 0 20px rgba(0,0,0,0.1);
     position: relative;
-    transition: width 0.3s ease;
+    /* transition removed for smooth resizing */
 }
 
 /* Resize Handle */
-.pro-sidebar::after {
-    content: '';
+.resize-handle {
     position: absolute;
     top: 0;
     right: 0;
-    width: 6px;
+    width: 8px;
     height: 100%;
     cursor: col-resize;
+    z-index: 100;
     background: transparent;
     transition: background 0.2s ease;
+}
+
+.resize-handle:hover {
+    background: rgba(59, 130, 246, 0.4);
+}
+
+.resize-handle:active {
+    background: rgba(59, 130, 246, 0.8);
 }
 
 .pro-sidebar:hover::after {

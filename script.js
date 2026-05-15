@@ -531,12 +531,8 @@ function showResetConfirm(busId) {
     }, 500);
 }
 
-function resetBus(busId) {
-    showResetConfirm(busId);
-}
+// Removed redundant resetBus and closeConfirmModal placeholders
 
-function closeConfirmModal() {}
-function executeReset() {}
 
 // Sync data
 function syncData(shouldFitBounds = false) {
@@ -648,6 +644,13 @@ function initMap() {
     map.on('load', () => {
         map.resize();
         syncData();
+        
+        // Start background sync every 5 seconds
+        if (!window.syncInterval) {
+            window.syncInterval = setInterval(() => {
+                syncData();
+            }, 5000);
+        }
     });
     
     window.addEventListener('resize', () => {
@@ -657,21 +660,8 @@ function initMap() {
     });
 }
 
-function loadAdminBuses() {
-    const buses = ["bus01","bus02","bus03","bus04","bus05","bus06"];
+// Removed redundant loadAdminBuses
 
-    const container = document.querySelector(".fleet-list");
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    buses.forEach(bus => {
-        const div = document.createElement("div");
-        div.className = "fleet-item";
-        div.innerHTML = `<div class="chip">${bus.toUpperCase()}</div>`;
-        container.appendChild(div);
-    });
-}
 
 
 
@@ -704,11 +694,15 @@ function publishTrip() {
 }
 
 function mapZoomIn() {
-    if (map) map.zoomIn();
+    if (map) {
+        map.setZoom(map.getZoom() + 1);
+    }
 }
 
 function mapZoomOut() {
-    if (map) map.zoomOut();
+    if (map) {
+        map.setZoom(map.getZoom() - 1);
+    }
 }
 
 function mapFitAll() {
@@ -725,21 +719,8 @@ function mapFitAll() {
     }
 }
 
-function loadAdminBuses() {
-    const buses = ["bus01","bus02","bus03","bus04","bus05","bus06"];
+// Removed redundant loadAdminBuses
 
-    const container = document.querySelector(".fleet-list");
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    buses.forEach(bus => {
-        const div = document.createElement("div");
-        div.className = "fleet-item";
-        div.innerHTML = `<div class="chip">${bus.toUpperCase()}</div>`;
-        container.appendChild(div);
-    });
-}
 
 function filterBusForUser(busId) {
     const fleetContainer = document.querySelector(".fleet-list");
@@ -1440,6 +1421,37 @@ window.onload = () => {
         searchDest.addEventListener("keydown", function(e) {
             if (e.key === "Enter") {
                 searchAndMove("destination");
+            }
+        });
+    }
+
+    // Sidebar Resize Implementation
+    const sidebar = document.querySelector('.pro-sidebar');
+    const resizeHandle = document.getElementById('sidebar-resize');
+    let isResizing = false;
+
+    if (resizeHandle && sidebar) {
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            document.body.classList.add('resizing');
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const newWidth = e.clientX;
+            if (newWidth >= 300 && newWidth <= 600) {
+                sidebar.style.width = newWidth + 'px';
+                if (map) map.resize();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                document.body.classList.remove('resizing');
+                if (map) map.resize();
             }
         });
     }
