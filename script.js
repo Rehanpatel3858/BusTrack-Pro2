@@ -205,7 +205,7 @@ function processLogin() {
     const password = document.getElementById("password").value.trim();
 
     if (!username || !password) {
-        showCustomAlert("Enter login details");
+        showCustomAlert("Invalid username or password");
         return;
     }
 
@@ -219,12 +219,12 @@ function processLogin() {
     // ROLE LOGIC
     if (currentRole === "driver") {
         if (!authUsers.drivers[username]) {
-            showCustomAlert("Invalid driver ID");
+            showCustomAlert("Invalid username or password");
             return;
         }
 
         if (authUsers.drivers[username] !== password) {
-            showCustomAlert("Wrong password");
+            showCustomAlert("Invalid username or password");
             return;
         }
 
@@ -250,12 +250,12 @@ function processLogin() {
     }
     else if (currentRole === "parent") {
         if (!authUsers.parents[username]) {
-            showCustomAlert("Invalid student ID");
+            showCustomAlert("Invalid username or password");
             return;
         }
 
         if (authUsers.parents[username] !== password) {
-            showCustomAlert("Wrong password");
+            showCustomAlert("Invalid username or password");
             return;
         }
 
@@ -282,12 +282,12 @@ function processLogin() {
     }
     else if (currentRole === "admin") {
         if (username !== authUsers.admin.username) {
-            showCustomAlert("Invalid admin ID");
+            showCustomAlert("Invalid username or password");
             return;
         }
 
         if (password !== authUsers.admin.password) {
-            showCustomAlert("Wrong password");
+            showCustomAlert("Invalid username or password");
             return;
         }
 
