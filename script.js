@@ -863,60 +863,53 @@ function normalizeQuery(query) {
     // Remove extra spaces
     normalized = normalized.replace(/\s+/g, ' ');
 
-    // Common Mumbai station & area corrections
-    const corrections = {
-        'bhayander': 'bhayandar',
-        'mira rd': 'mira road',
-        'stn': 'station',
-        'sttion': 'station',
-        'staiton': 'station',
-        'rly': 'railway',
-        'borivali': 'borivali',
-        'andheri': 'andheri',
-        'bandra': 'bandra',
-        'dadar': 'dadar',
-        'thane': 'thane',
-        'kandivali': 'kandivali',
-        'malad': 'malad',
-        'dahisar': 'dahisar'
+    // Precise Mumbai station & area mapping
+    const stationMappings = {
+        'thane': 'Thane Railway Station',
+        'borivali': 'Borivali Railway Station',
+        'mira road': 'Mira Road Railway Station',
+        'andheri': 'Andheri Railway Station',
+        'dadar': 'Dadar Railway Station',
+        'bandra': 'Bandra Railway Station',
+        'malad': 'Malad Railway Station',
+        'kandivali': 'Kandivali Railway Station',
+        'dahisar': 'Dahisar Railway Station',
+        'bhayandar': 'Bhayandar Railway Station'
     };
 
-    // Apply exact word corrections
-    Object.keys(corrections).forEach(wrong => {
-        const regex = new RegExp(`\\b${wrong}\\b`, 'g');
-        normalized = normalized.replace(regex, corrections[wrong]);
-    });
+    // Replace shorthand
+    normalized = normalized.replace(/\bstn\b/g, 'station');
+    normalized = normalized.replace(/\brly\b/g, 'railway');
 
-    // Smart Station Formatting
-    if (normalized.includes('station') && !normalized.includes('railway')) {
-        normalized = normalized.replace('station', 'railway station');
-    }
-
-    // Directional refinements (East/West)
-    const directions = ['east', 'west'];
-    directions.forEach(dir => {
-        if (normalized.includes(` ${dir}`)) {
-            // Ensure space before direction for better matching
+    // Apply strict station mapping if found
+    Object.keys(stationMappings).forEach(key => {
+        if (normalized.includes(key) && !normalized.includes('railway')) {
+            normalized = normalized.replace(key, stationMappings[key]);
         }
     });
 
-    // Area specific biasing
+    // Handle East/West strictly
+    const hasEast = normalized.includes('east');
+    const hasWest = normalized.includes('west');
+
+    // Build MMR Context intelligently
+    let context = "Maharashtra, India";
     if (normalized.includes('mira') || normalized.includes('bhayandar')) {
-        if (!normalized.includes('mira bhayandar')) {
-            normalized += ' Mira Bhayandar';
-        }
+        context = "Mira Bhayandar, " + context;
+    } else if (normalized.includes('thane')) {
+        context = "Thane, " + context;
+    } else {
+        context = "Mumbai, " + context;
     }
 
-    // Capitalize for professionalism (though API is case-insensitive, it helps with UI)
+    if (!normalized.includes('India')) {
+        normalized = `${normalized}, ${context}`;
+    }
+
+    // Capitalize for professional display
     normalized = normalized.replace(/\b\w/g, char => char.toUpperCase());
 
-    // Strict Mumbai/Maharashtra biasing
-    const mmrContext = 'Mumbai, Maharashtra, India';
-    if (!normalized.includes('Mumbai') && !normalized.includes('Maharashtra')) {
-        normalized += `, ${mmrContext}`;
-    }
-
-    console.log('Final Normalized Query:', normalized);
+    console.log('Final Search Query:', normalized);
     return normalized;
 }
 
@@ -926,61 +919,47 @@ function normalizeQuery(query) {
 
 async function searchAndMove(type) {
     console.log('\n========== SEARCH START ==========');
-    console.log('Search type:', type);
-
-    // Set interaction flag to prevent sync interruptions
+    
     isUserInteracting = true;
     lastUserActionTime = Date.now();
 
-    // Validate map instance
     if (!map) {
-        console.error('ERROR: Map instance is undefined');
         showCustomAlert('Map not loaded. Please refresh the page.');
         isUserInteracting = false;
         return;
     }
 
-    // Get input element
     const inputId = type === 'current' ? 'search-src' : 'search-dest';
     const inputEl = document.getElementById(inputId);
 
     if (!inputEl) {
-        console.error('ERROR: Input element not found:', inputId);
-        showCustomAlert('Search input not found');
         isUserInteracting = false;
         return;
     }
 
-    // Get and validate raw query
     let rawQuery = inputEl.value;
-    console.log('Raw user input:', rawQuery);
-
     if (!rawQuery || rawQuery.trim() === '') {
-        console.log('WARNING: Empty query');
         showCustomAlert('Please enter a location');
         isUserInteracting = false;
         return;
     }
 
-    // Normalize query with auto-correction
     const normalizedQuery = normalizeQuery(rawQuery);
-    console.log('Final query sent to API:', normalizedQuery);
+    const queryLower = rawQuery.toLowerCase();
 
     try {
-        // Build TomTom Fuzzy Search API URL with strict MMR bias
-        // Mira Bhayandar/Mumbai Center: 19.2813, 72.8557
         const baseUrl = 'https://api.tomtom.com/search/2/search';
         const encodedQuery = encodeURIComponent(normalizedQuery);
         
-        // countrySet=IN and radius/lat/lon biasing for MMR
-        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=10&idxSet=POI,Geo,PAD,Addr&countrySet=IN&lat=19.2813&lon=72.8557&radius=40000`;
+        // Extended limit to 20 for better selection among POI/Addr/Geo
+        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=20&idxSet=POI,Geo,Addr,PAD&countrySet=IN&lat=19.2813&lon=72.8557&radius=50000`;
 
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
 
-        // 1. Filter results strictly for Mumbai/Maharashtra/Thane context
+        // Strict Regional Filter
         const mmrResults = data.results.filter(r => {
             const addr = (r.address?.freeformAddress || "").toLowerCase();
             return addr.includes("mumbai") || addr.includes("maharashtra") || addr.includes("thane") || addr.includes("mira bhayandar");
@@ -989,38 +968,41 @@ async function searchAndMove(type) {
         const finalResults = mmrResults.length > 0 ? mmrResults : data.results;
 
         if (finalResults.length === 0) {
-            showCustomAlert(`Location not found accurately: "${rawQuery}". Please be more specific (e.g. include "East" or "West").`);
+            showCustomAlert(`Location not found: "${rawQuery}". Try adding "East" or "West".`);
             isUserInteracting = false;
             return;
         }
 
-        // 2. Smart Selection Logic
+        // Advanced Selection Logic (Station side match)
         let bestResult = finalResults[0];
         let maxScore = -1;
 
-        const queryLower = normalizedQuery.toLowerCase();
-        const queryWords = queryLower.split(/[ ,]+/);
-        
+        const isStationQuery = queryLower.includes('station') || queryLower.includes('stn') || queryLower.includes('rly');
+        const isEast = queryLower.includes('east');
+        const isWest = queryLower.includes('west');
+
         finalResults.forEach(result => {
             let score = 0;
             const addr = (result.address?.freeformAddress || "").toLowerCase();
             const poiName = (result.poi?.name || "").toLowerCase();
             const combined = `${poiName} ${addr}`;
 
-            // Keyword match scoring
-            queryWords.forEach(word => {
-                if (word.length > 2 && combined.includes(word)) score += 10;
-            });
+            // 1. Keyword match (Base Score)
+            if (combined.includes(queryLower)) score += 50;
 
-            // POI type biasing (Stations, Landmarks)
+            // 2. Station Type Match (High Priority)
             if (result.type === 'POI') {
-                score += 5;
-                if (combined.includes('railway station')) score += 15;
+                score += 20;
+                if (combined.includes('railway station')) score += 40;
             }
 
-            // Directional match (East/West)
-            if (queryLower.includes('east') && combined.includes('east')) score += 20;
-            if (queryLower.includes('west') && combined.includes('west')) score += 20;
+            // 3. Strict Directional Match (East/West)
+            if (isEast && combined.includes('east')) score += 60;
+            if (isWest && combined.includes('west')) score += 60;
+
+            // 4. Exact Station Side Match (The "Holy Grail" match)
+            if (isStationQuery && isEast && combined.includes('railway station') && combined.includes('east')) score += 100;
+            if (isStationQuery && isWest && combined.includes('railway station') && combined.includes('west')) score += 100;
 
             if (score > maxScore) {
                 maxScore = score;
@@ -1028,9 +1010,9 @@ async function searchAndMove(type) {
             }
         });
 
-        // Confidence Check
-        if (maxScore < 10 && !bestResult.address?.freeformAddress?.toLowerCase().includes("mumbai")) {
-             showCustomAlert("Location confidence low. Please enter a more specific location in Mumbai/Thane.");
+        // Final Confidence Check
+        if (maxScore < 20 && !bestResult.address?.freeformAddress?.toLowerCase().includes("mumbai")) {
+             showCustomAlert("Low confidence match. Please provide a more specific location.");
              isUserInteracting = false;
              return;
         }
@@ -1044,17 +1026,17 @@ async function searchAndMove(type) {
             currentMarker = new tt.Marker({ color: '#2563eb' })
                 .setLngLat(coords)
                 .addTo(map)
-                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Start:</strong> ${displayName}`));
+                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Start Point:</strong><br>${displayName}`));
         } else {
             if (destinationMarker) destinationMarker.remove();
             destinationCoords = coords;
             destinationMarker = new tt.Marker({ color: '#ef4444' })
                 .setLngLat(coords)
                 .addTo(map)
-                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Destination:</strong> ${displayName}`));
+                .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Destination:</strong><br>${displayName}`));
         }
 
-        // Persist
+        // Local Persistence
         let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
         if (!fleet[currentBus]) fleet[currentBus] = {};
         
@@ -1067,19 +1049,20 @@ async function searchAndMove(type) {
         }
         localStorage.setItem("fleet_data", JSON.stringify(fleet));
 
-        // Auto-fit map if both points are set
+        // Refined Map Focusing
         if (currentCoords && destinationCoords) {
             const bounds = new tt.LngLatBounds();
             bounds.extend(currentCoords);
             bounds.extend(destinationCoords);
-            map.fitBounds(bounds, { padding: 80, duration: 1000 });
+            map.fitBounds(bounds, { padding: 100, duration: 1500 });
         } else {
-            map.flyTo({ center: coords, zoom: 15 });
+            // High zoom (16) for specific station/point searches
+            map.flyTo({ center: coords, zoom: 16, duration: 1500 });
         }
 
     } catch (error) {
-        console.error('Search Error:', error);
-        showCustomAlert("Search failed. Please check your connection.");
+        console.error('Search Accuracy Error:', error);
+        showCustomAlert("Search failed. Please enter a more complete address.");
     } finally {
         isUserInteracting = false;
     }
