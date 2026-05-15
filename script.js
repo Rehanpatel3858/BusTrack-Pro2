@@ -215,6 +215,12 @@ function processLogin() {
         const assignedBus = driverBusMap[username];
         currentBus = assignedBus;
 
+        // PERSIST ROLE FOR SYNC
+        sessionStorage.setItem("active_role", "driver");
+        sessionStorage.setItem("active_user", username);
+        sessionStorage.setItem("active_bus", assignedBus);
+        sessionStorage.setItem("is_logged_in", "true");
+
         document.getElementById("driver-portal").style.display = "block";
         document.getElementById("monitor-portal").style.display = "none";
 
@@ -239,6 +245,12 @@ function processLogin() {
 
         const assignedBus = parentBusMap[username];
         currentBus = assignedBus;
+        
+        // PERSIST ROLE FOR SYNC
+        sessionStorage.setItem("active_role", "parent");
+        sessionStorage.setItem("active_user", username);
+        sessionStorage.setItem("active_bus", assignedBus);
+        sessionStorage.setItem("is_logged_in", "true");
 
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
@@ -262,6 +274,11 @@ function processLogin() {
             showCustomAlert("Wrong password");
             return;
         }
+
+        // PERSIST ROLE FOR SYNC
+        sessionStorage.setItem("active_role", "admin");
+        sessionStorage.setItem("active_user", username);
+        sessionStorage.setItem("is_logged_in", "true");
 
         document.getElementById("monitor-portal").style.display = "block";
         document.getElementById("driver-portal").style.display = "none";
@@ -733,16 +750,10 @@ function filterBusForUser(busId) {
 
     fleetContainer.innerHTML = "";
 
-    // Parent Portal: remove duplicated card, keep lower only
-    if (role === "parent") {
-        return; 
-    }
+    // Show only assigned bus for Parent/Driver, or all for Admin
+    const targetBuses = (role === "admin") ? buses : [activeBusID];
 
-    buses.forEach(bus => {
-        if (busId !== "all" && bus !== busId) {
-            return;
-        }
-
+    targetBuses.forEach(bus => {
         const data = liveBusState[bus] || {};
         const status = data.active ? "LIVE" : "OFFLINE";
         const statusClass = data.active ? "live" : "offline";
@@ -753,8 +764,22 @@ function filterBusForUser(busId) {
         card.className = "admin-bus-card";
         if (bus === activeBusID) card.classList.add("active");
 
-        if (role === "driver") {
-            // Driver Portal Cleanup: Bus ID, status, and Reset button only
+        if (role === "parent") {
+            // Parent: Simplified card, NO RESET BUTTON
+            card.innerHTML = `
+                <div class="bus-card-header">
+                    <div class="bus-id-badge">${display}</div>
+                    <div class="status-badge ${statusClass}">${status}</div>
+                </div>
+                <div class="bus-card-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Status</span>
+                        <span class="detail-value">${status}</span>
+                    </div>
+                </div>
+            `;
+        } else if (role === "driver") {
+            // Driver: Minimal card with Reset
             card.innerHTML = `
                 <div class="bus-card-header">
                     <div class="bus-id-badge">${display}</div>
@@ -767,7 +792,7 @@ function filterBusForUser(busId) {
                 </div>
             `;
         } else {
-            // Admin Portal: Details on click
+            // Admin: Detailed card with Reset, expansion on click
             const isSelected = bus === activeBusID;
             card.innerHTML = `
                 <div class="bus-card-header">
@@ -809,7 +834,6 @@ function filterBusForUser(busId) {
                 const details = document.getElementById(`details-${bus}`);
                 const alreadyOpen = details.style.display === "block";
                 
-                // Hide others if opening
                 if (!alreadyOpen) {
                     document.querySelectorAll('.bus-card-details').forEach(el => el.style.display = 'none');
                     details.style.display = "block";
@@ -1353,7 +1377,14 @@ function closeCustomAlert() {
 }
 
 function resetBus(busId) {
-    if (currentRole !== "admin" && currentBus !== busId) {
+    const role = sessionStorage.getItem("active_role") || currentRole;
+    
+    if (role === "parent") {
+        showCustomAlert("Parents do not have permission to reset buses.");
+        return;
+    }
+
+    if (role !== "admin" && activeBusID !== busId) {
         return;
     }
 
@@ -1365,14 +1396,19 @@ function resetBus(busId) {
         eta: null,
         routeGeo: null
     };
+    
+    // Update LocalStorage
+    let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
+    fleet[busId] = { active: false };
+    localStorage.setItem("fleet_data", JSON.stringify(fleet));
 
     // Clear route and markers for this bus
-    if (busId === currentBus) {
+    if (busId === activeBusID) {
         clearRouteAndMarkers();
     }
 
     // Update UI
-    filterBusForUser(currentRole === "admin" ? "all" : currentBus);
+    filterBusForUser(role === "admin" ? "all" : activeBusID);
     updateParentPanel(busId);
 
     showCustomAlert(busId.toUpperCase() + " reset successfully");

@@ -840,12 +840,12 @@ body {
 
 /* Sidebar */
 .pro-sidebar {
-    width: 320px;
-    min-width: 300px;
-    max-width: 450px;
+    width: 380px;
+    min-width: 350px;
+    max-width: 500px;
     background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     border-right: 1px solid rgba(255,255,255,0.1);
-    padding: 20px;
+    padding: 24px;
     overflow-y: auto;
     overflow-x: hidden;
     box-shadow: 4px 0 20px rgba(0,0,0,0.1);
