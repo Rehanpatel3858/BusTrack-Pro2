@@ -881,6 +881,10 @@ function normalizeQuery(query) {
     normalized = normalized.replace(/\bstn\b/g, 'station');
     normalized = normalized.replace(/\brly\b/g, 'railway');
 
+    // Detect if a specific city is already mentioned
+    const knownCities = ['mumbai', 'pune', 'thane', 'navi mumbai', 'mira bhayandar', 'nashik', 'nagpur', 'aurangabad', 'solapur', 'kolhapur'];
+    const targetCity = knownCities.find(city => normalized.includes(city));
+
     // Apply strict station mapping if found
     Object.keys(stationMappings).forEach(key => {
         if (normalized.includes(key) && !normalized.includes('railway')) {
@@ -888,18 +892,18 @@ function normalizeQuery(query) {
         }
     });
 
-    // Handle East/West strictly
-    const hasEast = normalized.includes('east');
-    const hasWest = normalized.includes('west');
-
-    // Build MMR Context intelligently
+    // Build Context
     let context = "Maharashtra, India";
-    if (normalized.includes('mira') || normalized.includes('bhayandar')) {
-        context = "Mira Bhayandar, " + context;
-    } else if (normalized.includes('thane')) {
-        context = "Thane, " + context;
-    } else {
-        context = "Mumbai, " + context;
+    
+    if (!targetCity) {
+        // Only add default city context if no known city is mentioned
+        if (normalized.includes('mira') || normalized.includes('bhayandar')) {
+            context = "Mira Bhayandar, " + context;
+        } else if (normalized.includes('thane')) {
+            context = "Thane, " + context;
+        } else {
+            context = "Mumbai, " + context;
+        }
     }
 
     if (!normalized.includes('India')) {
@@ -909,7 +913,7 @@ function normalizeQuery(query) {
     // Capitalize for professional display
     normalized = normalized.replace(/\b\w/g, char => char.toUpperCase());
 
-    console.log('Final Search Query:', normalized);
+    console.log('Normalized Search Query:', normalized);
     return normalized;
 }
 
@@ -951,58 +955,66 @@ async function searchAndMove(type) {
         const baseUrl = 'https://api.tomtom.com/search/2/search';
         const encodedQuery = encodeURIComponent(normalizedQuery);
         
-        // Extended limit to 20 for better selection among POI/Addr/Geo
-        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=20&idxSet=POI,Geo,Addr,PAD&countrySet=IN&lat=19.2813&lon=72.8557&radius=50000`;
+        // Dynamic Biasing: Use center of Maharashtra if "Pune" or other non-MMR city is detected
+        let lat = 19.2813; // Default Mira Bhayandar
+        let lon = 72.8557;
+        let radius = 50000;
+
+        if (queryLower.includes('pune')) {
+            lat = 18.5204;
+            lon = 73.8567;
+            radius = 20000;
+        }
+
+        const url = `${baseUrl}/${encodedQuery}.json?key=${TOMTOM_KEY}&limit=20&idxSet=POI,Geo,Addr,PAD&countrySet=IN&lat=${lat}&lon=${lon}&radius=${radius}`;
 
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
 
-        // Strict Regional Filter
-        const mmrResults = data.results.filter(r => {
-            const addr = (r.address?.freeformAddress || "").toLowerCase();
-            return addr.includes("mumbai") || addr.includes("maharashtra") || addr.includes("thane") || addr.includes("mira bhayandar");
-        });
-
-        const finalResults = mmrResults.length > 0 ? mmrResults : data.results;
-
-        if (finalResults.length === 0) {
-            showCustomAlert(`Location not found: "${rawQuery}". Try adding "East" or "West".`);
+        if (!data.results || data.results.length === 0) {
+            showCustomAlert(`Location not found: "${rawQuery}".`);
             isUserInteracting = false;
             return;
         }
 
-        // Advanced Selection Logic (Station side match)
-        let bestResult = finalResults[0];
+        // Smart selection based on query relevance, not just first result
+        let bestResult = data.results[0];
         let maxScore = -1;
 
         const isStationQuery = queryLower.includes('station') || queryLower.includes('stn') || queryLower.includes('rly');
         const isEast = queryLower.includes('east');
         const isWest = queryLower.includes('west');
 
-        finalResults.forEach(result => {
+        data.results.forEach(result => {
             let score = 0;
             const addr = (result.address?.freeformAddress || "").toLowerCase();
             const poiName = (result.poi?.name || "").toLowerCase();
-            const combined = `${poiName} ${addr}`;
+            const municipality = (result.address?.municipality || "").toLowerCase();
+            const combined = `${poiName} ${addr} ${municipality}`;
 
             // 1. Keyword match (Base Score)
             if (combined.includes(queryLower)) score += 50;
 
-            // 2. Station Type Match (High Priority)
+            // 2. City Validation (Massive boost for correct city)
+            if (queryLower.includes('pune') && (addr.includes('pune') || municipality.includes('pune'))) score += 100;
+            if (queryLower.includes('mumbai') && (addr.includes('mumbai') || municipality.includes('mumbai'))) score += 100;
+            if (queryLower.includes('thane') && (addr.includes('thane') || municipality.includes('thane'))) score += 100;
+
+            // 3. Station Type Match
             if (result.type === 'POI') {
                 score += 20;
                 if (combined.includes('railway station')) score += 40;
             }
 
-            // 3. Strict Directional Match (East/West)
+            // 4. Directional Match
             if (isEast && combined.includes('east')) score += 60;
             if (isWest && combined.includes('west')) score += 60;
 
-            // 4. Exact Station Side Match (The "Holy Grail" match)
-            if (isStationQuery && isEast && combined.includes('railway station') && combined.includes('east')) score += 100;
-            if (isStationQuery && isWest && combined.includes('railway station') && combined.includes('west')) score += 100;
+            // 5. Exact Station Side Match
+            if (isStationQuery && isEast && combined.includes('railway station') && combined.includes('east')) score += 150;
+            if (isStationQuery && isWest && combined.includes('railway station') && combined.includes('west')) score += 150;
 
             if (score > maxScore) {
                 maxScore = score;
@@ -1010,16 +1022,10 @@ async function searchAndMove(type) {
             }
         });
 
-        // Final Confidence Check
-        if (maxScore < 20 && !bestResult.address?.freeformAddress?.toLowerCase().includes("mumbai")) {
-             showCustomAlert("Low confidence match. Please provide a more specific location.");
-             isUserInteracting = false;
-             return;
-        }
-
         const coords = [bestResult.position.lon, bestResult.position.lat];
         const displayName = bestResult.address?.freeformAddress || normalizedQuery;
 
+        // Clear markers and update
         if (type === 'current') {
             if (currentMarker) currentMarker.remove();
             currentCoords = coords;
@@ -1036,7 +1042,7 @@ async function searchAndMove(type) {
                 .setPopup(new tt.Popup({ offset: 35 }).setHTML(`<strong>Destination:</strong><br>${displayName}`));
         }
 
-        // Local Persistence
+        // Persist
         let fleet = JSON.parse(localStorage.getItem("fleet_data")) || {};
         if (!fleet[currentBus]) fleet[currentBus] = {};
         
@@ -1049,20 +1055,19 @@ async function searchAndMove(type) {
         }
         localStorage.setItem("fleet_data", JSON.stringify(fleet));
 
-        // Refined Map Focusing
+        // Center map
         if (currentCoords && destinationCoords) {
             const bounds = new tt.LngLatBounds();
             bounds.extend(currentCoords);
             bounds.extend(destinationCoords);
             map.fitBounds(bounds, { padding: 100, duration: 1500 });
         } else {
-            // High zoom (16) for specific station/point searches
             map.flyTo({ center: coords, zoom: 16, duration: 1500 });
         }
 
     } catch (error) {
         console.error('Search Accuracy Error:', error);
-        showCustomAlert("Search failed. Please enter a more complete address.");
+        showCustomAlert("Location not found correctly. Please try a more specific address.");
     } finally {
         isUserInteracting = false;
     }
