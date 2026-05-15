@@ -2052,6 +2052,12 @@ body {
    ============================================ */
 
 @media (max-width: 768px) {
+    /* Enable Scrolling on Mobile */
+    body, html {
+        overflow: auto !important;
+        height: auto !important;
+    }
+
     /* Main Layout - Map on top, Info below */
     .dashboard-wrapper {
         flex-direction: column-reverse;
@@ -2059,6 +2065,7 @@ body {
         min-height: 100vh;
         background: #0f172a;
         padding-bottom: 40px;
+        overflow: visible;
     }
 
     /* Map Section as a Premium App Card */
